@@ -31,13 +31,14 @@ interdevicemanager_CPPFLAGS = -I$(top_srcdir)/source/TR-181/include             
         -I$(top_srcdir)/../hal/include                                                \
         -I$(top_srcdir)/../CcspCommonLibrary/source/cosa/include/                  \
         -I$(top_srcdir)/../CcspCommonLibrary/source/ccsp/components/include/       \
-        -I$(top_srcdir)/source/TR-181/middle_layer_src $(CPPFLAGS)
+        -I$(top_srcdir)/source/TR-181/middle_layer_src $(CPPFLAGS)                 \
+        -I${PKG_CONFIG_SYSROOT_DIR}$(includedir)/rbus
 
 interdevicemanager_DEPENDENCIES= \
     $(EXTRA_DEPENDENCIES) \
     ${top_builddir}/source/TR-181/middle_layer_src/libinterdevicemanager_middle_layer_src.la
 
 interdevicemanager_CFLAGS = $(SYSTEMD_CFLAGS) $(NONROOT_CFLAGS)
-interdevicemanager_SOURCES = inter_device_manager_action.c inter_device_manager_internal.h inter_device_manager_main.c inter_device_manager_messagebus_interface.c
-interdevicemanager_LDFLAGS = -lccsp_common -ldl $(SYSTEMD_LDFLAGS) -lrdkloggers -lsyscfg
+interdevicemanager_SOURCES = inter_device_manager_action.c inter_device_manager_internal.h inter_device_manager_main.c inter_device_manager_messagebus_interface.c Idm_mgr.c Idm_utils.c Idm_rbus.c
+interdevicemanager_LDFLAGS = -lccsp_common -ldl $(SYSTEMD_LDFLAGS) -lrdkloggers -lsyscfg -lrbus
 interdevicemanager_LDADD =  $(interdevicemanager_DEPENDENCIES)
