@@ -63,6 +63,7 @@ BackEndManagerCreate
         VOID
     )
 {
+    CcspTraceInfo(("Enter %s", __func__));
     ANSC_STATUS                returnStatus = ANSC_STATUS_SUCCESS;
     PBACKEND_MANAGER_OBJECT    pMyObject    = (PBACKEND_MANAGER_OBJECT)NULL;
 
@@ -81,6 +82,7 @@ BackEndManagerCreate
     {
         return  (ANSC_HANDLE)NULL;
     }
+    memset (pMyObject->pIDMDeviceInfo, 0, sizeof(IDM_DEVICE_INFO));
 
     pMyObject->pIDMDeviceInfo->pdeviceList = (PIDM_DEVICE_LIST) AnscAllocateMemory(sizeof(IDM_DEVICE_LIST) * 1);
 
@@ -88,6 +90,7 @@ BackEndManagerCreate
     {
         return  (ANSC_HANDLE)NULL;
     }
+    memset (pMyObject->pIDMDeviceInfo->pdeviceList, 0, sizeof(IDM_DEVICE_LIST));
 
     /*
      * Initialize the common variables and functions for a container object.
@@ -175,18 +178,15 @@ BackEndManagerInitialize
         ANSC_HANDLE                 hThisObject
     )
 {
-
+    CcspTraceInfo(("Enter %s", __func__));
     ANSC_STATUS                     returnStatus = ANSC_STATUS_SUCCESS;
     PBACKEND_MANAGER_OBJECT  pMyObject    = (PBACKEND_MANAGER_OBJECT)hThisObject;
 
-    if (pMyObject == NULL)
+    if (pMyObject == NULL || pMyObject->pIDMDeviceInfo == NULL || pMyObject->pIDMDeviceInfo->pdeviceList == NULL)
     {
         AnscTraceError(("%s:%d:: Pointer is null!!\n", __FUNCTION__, __LINE__));
-        return ANSC_STATUS_FAILURE;
+        //return ANSC_STATUS_FAILURE;
     }
-
-    memset (pMyObject->pIDMDeviceInfo, 0, sizeof(IDM_DEVICE_INFO));
-    memset (pMyObject->pIDMDeviceInfo->pdeviceList, 0, sizeof(IDM_DEVICE_LIST));
 
     if (syscfg_init() != 0)
     {
