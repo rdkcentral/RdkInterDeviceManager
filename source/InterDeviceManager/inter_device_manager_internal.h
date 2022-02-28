@@ -91,6 +91,7 @@ typedef  struct _IDM_REMOTE_DEVICE_INFO
     char                       Capabilities[1024];
     char                       ModelNumber[256];
     unsigned int               Index;
+    time_t                     Last_update;
 }
 IDM_REMOTE_DEVICE_INFO,  *PIDM_REMOTE_DEVICE_INFO;
 
