@@ -304,6 +304,23 @@ int main(int argc, char* argv[])
 
     cmd_dispatch('e');
 
+#if defined (_SE501_PRODUCT_REQ_) || defined(_WNXL11BWL_PRODUCT_REQ_)
+    //Start the client for to connect with IDM server
+    idm_start_client();
+    CcspTraceInfo(("\nIDM Client started successfully !!\n"));
+#elif defined(_SR300_PRODUCT_REQ_)
+    //Start the Server for IDM to accept connections
+    int rc = idm_start_server();
+    if ( rc == 0 )
+    {
+      CcspTraceInfo(("\nIDM Server started successfully !!\n"));
+    } else {
+      CcspTraceInfo(("\nIDM Server NOT started !!\n"));
+    }
+#else
+    CcspTraceInfo(("\nIDM Server/Client Not Needed !!\n"));
+#endif
+
 #ifdef _COSA_SIM_
     subSys = "";        /* PC simu use empty string as subsystem */
 #else
