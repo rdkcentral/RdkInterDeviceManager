@@ -143,7 +143,7 @@ ANSC_STATUS updteSubscriptionStatus(char *event, IDM_RBUS_SUBS_STATUS *sidmRmSub
         sidmRmSubStatus->idmRmCapSubscribed = TRUE;
     else if(strstr(event, ".ModelNumber"))
         sidmRmSubStatus->idmRmModelNumSubscribed = TRUE;
-    else if(strcmp(event, "RM_NEW_DEVICE") == 0)
+    else if(strcmp(event, "Device.X_RDK_Remote.DeviceChange") == 0)
         sidmRmSubStatus->idmRmNewDeviceSubscribed = TRUE;
     else
     {

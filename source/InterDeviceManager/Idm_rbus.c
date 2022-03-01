@@ -36,7 +36,7 @@
 
 #define CONN_HC_ELEMENTS   4
 #define CONN_METHOD_ELEMENTS   3
-#define RM_NEW_DEVICE_FOUND "RM_NEW_DEVICE"
+#define RM_NEW_DEVICE_FOUND "Device.X_RDK_Remote.DeviceChange"
 #define  ARRAY_SZ(x) (sizeof(x) / sizeof((x)[0]))
 #define DEFAULT_SUBNET_LIST "255.255.255.0"
 #define DEFAULT_HELLO_INTERVAL 10000
@@ -58,11 +58,11 @@
 #define DM_REMOTE_DEVICE_CAP "Device.X_RDK_Remote.Device.{i}.Capabilities"
 #define DM_REMOTE_DEVICE_MODEL_NUM "Device.X_RDK_Remote.Device.{i}.ModelNumber"
 
-#define RM_NEW_DEVICE_FOUND_STRING "RM_NEW_DEVICE"
-
 #define DM_REMOTE_DEVICE_ADD_CAP "Device.X_RDK_Remote.AddDeviceCapabilities()"
 #define DM_REMOTE_DEVICE_REM_CAP "Device.X_RDK_Remote.RemoveDeviceCapabilities()"
 #define DM_REMOTE_DEVICE_RESET_CAP "Device.X_RDK_Remote.ResetDeviceCapabilities()"
+
+#define RM_NUM_ENTRIES "Device.X_RDK_Remote.DeviceNumberOfEntries"
 
 rbusHandle_t        rbusHandle;
 char                idmComponentName[32] = "IDM_RBUS";
@@ -82,7 +82,8 @@ rbusDataElement_t idmRmPublishElements[] = {
     {DM_REMOTE_DEVICE_IPV6, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}},
     {DM_REMOTE_DEVICE_CAP, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}},
     {DM_REMOTE_DEVICE_MODEL_NUM, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}},
-    {RM_NEW_DEVICE_FOUND, RBUS_ELEMENT_TYPE_EVENT, { X_RDK_Remote_Device_GetHandler, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}}
+    {RM_NEW_DEVICE_FOUND, RBUS_ELEMENT_TYPE_EVENT, { X_RDK_Remote_Device_GetHandler, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}},
+    {RM_NUM_ENTRIES, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}}
 };
 
 //2. local data
@@ -455,6 +456,19 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
             return RBUS_ERROR_BUS_ERROR;   
         }
         rbusValue_SetString(value, index_node->stRemoteDeviceInfo.ModelNumber);
+    }
+
+    if(strcmp(name, RM_NUM_ENTRIES) == 0)
+    {
+        if(pidmDmlInfo == NULL)
+        {
+            CcspTraceInfo(("%s %d - Failed to get number of entries\n", __FUNCTION__, __LINE__));
+            return RBUS_ERROR_BUS_ERROR;   
+        }
+        
+        rbusValue_SetInt32(value, pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries);
+        CcspTraceInfo(("%s %d - Number of entries:%d\n", __FUNCTION__, __LINE__, 
+                            pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries));
     }
 
     rbusProperty_SetValue(property, value);
