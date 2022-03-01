@@ -36,6 +36,8 @@
 
 #include "Idm_rbus.h"
 
+#define PSM_BROADCAST_INTERFACE_NAME      "dmsb.interdevicemanager.BroadcastInterface"
+
 typedef enum _EVENT_DATA_TYPES
 {
     EV_BOOLEAN = 1,
@@ -53,5 +55,9 @@ EVENT_DATA_TYPES getEventType(char *event);
 IDM_REMOTE_DEVICE_LINK_INFO* getRmDeviceNode(const IDM_DML_LINK_LIST sidmDmlListInfo, uint32_t index);
 
 ANSC_STATUS updteSubscriptionStatus(char *event, IDM_RBUS_SUBS_STATUS *sidmRmSubStatus);
+
+int IDMMgr_RdkBus_SetParamValuesToDB( char *pParamName, char *pParamVal );
+
+int IDMMgr_RdkBus_GetParamValuesFromDB( char *pParamName, char *pReturnVal, int returnValLength );
 
 #endif
