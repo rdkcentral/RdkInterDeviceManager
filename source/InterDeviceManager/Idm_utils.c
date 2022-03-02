@@ -36,6 +36,8 @@
 
 extern ANSC_HANDLE  bus_handle;
 extern char         g_Subsystem[32];
+extern IDM_DML_LINK_LIST sidmDmlListInfo;
+extern PIDM_DML_INFO pidmDmlInfo;
 
 ANSC_STATUS addDevice(IDM_REMOTE_DEVICE_LINK_INFO *newNode, IDM_DML_LINK_LIST *sidmDmlListInfo)
 {
@@ -198,4 +200,40 @@ int IDMMgr_RdkBus_SetParamValuesToDB( char *pParamName, char *pParamVal )
         CcspTraceError(("%s Error %d writing %s\n", __FUNCTION__, retPsmSet, pParamName));
     }
     return retPsmSet;
+}
+
+ANSC_STATUS IDMMgr_GetDeviceCapabilities(char *Capabilities)
+{
+    int retPsmGet = CCSP_SUCCESS;
+    char param_value[1024];
+    char param_name[512];
+
+    _ansc_memset(param_name, 0, sizeof(param_name));
+    _ansc_memset(param_value, 0, sizeof(param_value));
+    _ansc_sprintf(param_name, PSM_DEVICE_CAPABILITIES);
+
+    retPsmGet = IDMMgr_RdkBus_GetParamValuesFromDB(param_name,param_value,sizeof(param_value));
+
+    if (retPsmGet == CCSP_SUCCESS)
+    {
+        AnscCopyString(Capabilities, param_value);
+    }
+
+    return ANSC_STATUS_SUCCESS;
+}
+
+ANSC_STATUS IDMMgr_UpdateLocalDeviceData(char *IP, char *mac)
+{
+    /*Local device info will be stored in first entry */
+    IDM_REMOTE_DEVICE_LINK_INFO *localDevice = sidmDmlListInfo.pListHead;
+
+    strncpy(localDevice->stRemoteDeviceInfo.MAC, mac, 17);
+    strncpy(localDevice->stRemoteDeviceInfo.IPv4, IP, 16);
+    platform_hal_GetModelName(localDevice->stRemoteDeviceInfo.ModelNumber);
+    IDMMgr_GetDeviceCapabilities(localDevice->stRemoteDeviceInfo.Capabilities);
+    localDevice->stRemoteDeviceInfo.HelloInterval = pidmDmlInfo->stConnectionInfo.HelloInterval;
+
+    CcspTraceInfo(("[%s: %d] MAC :%s, IP: %s, Model: %s, Capabilities: %s HelloInterval %d msec\n", __FUNCTION__, __LINE__,localDevice->stRemoteDeviceInfo.MAC, 
+                    localDevice->stRemoteDeviceInfo.IPv4, localDevice->stRemoteDeviceInfo.ModelNumber,localDevice->stRemoteDeviceInfo.Capabilities, localDevice->stRemoteDeviceInfo.HelloInterval));
+    return ANSC_STATUS_SUCCESS;
 }

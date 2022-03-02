@@ -231,6 +231,7 @@ static void* IDMMgr_Heart_Beat_thread(void *arg )
     struct  ifreq ifr;
     unsigned char serverInterfaceMac[20];
     char broadcastIfaceName[20] = {0};
+    char serverInterfaceIP[20] = {0};
     char hello[64] = {0};
 
     pthread_detach(pthread_self());
@@ -259,7 +260,14 @@ static void* IDMMgr_Heart_Beat_thread(void *arg )
     sprintf(serverInterfaceMac,"%02X:%02X:%02X:%02X:%02X:%02X",
             mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
 
-    CcspTraceInfo(("\n[%s: %d] %s mac : %s \n", __FUNCTION__, __LINE__, ifr.ifr_name, serverInterfaceMac));
+    /* get Interface IP */
+    ifr.ifr_addr.sa_family = AF_INET;
+    ioctl(socket_server, SIOCGIFADDR, &ifr);
+    sprintf(serverInterfaceIP,"%s",inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));
+
+    CcspTraceInfo(("\n[%s: %d] %s Mac : %s Ipv4 : %s \n", __FUNCTION__, __LINE__, ifr.ifr_name, serverInterfaceMac, serverInterfaceIP));
+    IDMMgr_UpdateLocalDeviceData(serverInterfaceIP, serverInterfaceMac);
+    int HelloInterval = (pidmDmlInfo->stConnectionInfo.HelloInterval /1000);
 
     /* get Interface Broadcast address */
     if(ioctl(socket_server, SIOCGIFBRDADDR, &ifr) != 0)
@@ -330,7 +338,7 @@ static void* IDMMgr_Heart_Beat_thread(void *arg )
 
         /*Check time interval to send hello */
         time_t current_time = time(0);
-        if(difftime(current_time, last_HB_sent_time) > 10)
+        if(difftime(current_time, last_HB_sent_time) > HelloInterval)
         {
             /*Broadcast Hello message */
             last_HB_sent_time = time(0);

@@ -37,6 +37,7 @@
 #include "Idm_rbus.h"
 
 #define PSM_BROADCAST_INTERFACE_NAME      "dmsb.interdevicemanager.BroadcastInterface"
+#define PSM_DEVICE_CAPABILITIES           "dmsb.interdevicemanager.Capabilities"
 
 typedef enum _EVENT_DATA_TYPES
 {
@@ -59,5 +60,7 @@ ANSC_STATUS updteSubscriptionStatus(char *event, IDM_RBUS_SUBS_STATUS *sidmRmSub
 int IDMMgr_RdkBus_SetParamValuesToDB( char *pParamName, char *pParamVal );
 
 int IDMMgr_RdkBus_GetParamValuesFromDB( char *pParamName, char *pReturnVal, int returnValLength );
+
+ANSC_STATUS IDMMgr_UpdateLocalDeviceData(char *IP, char *mac);
 
 #endif
