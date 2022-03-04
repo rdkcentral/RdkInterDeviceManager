@@ -87,8 +87,8 @@ ANSC_STATUS IDMMgr_UpdateDeviceList(char *mac, char *ip)
             pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries++;
         }
         // add row for table
-        rbusTable_registerRow(rbusHandle, DM_REMOTE_DEVICE_TABLE, NULL, pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries);
-
+        rbusTable_registerRow(rbusHandle, DM_REMOTE_DEVICE_TABLE, 
+                                pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries, NULL);
     }
     return  returnStatus;
 }

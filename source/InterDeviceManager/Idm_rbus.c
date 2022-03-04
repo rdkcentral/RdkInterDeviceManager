@@ -82,7 +82,7 @@ rbusDataElement_t idmRmPublishElements[] = {
     {DM_REMOTE_DEVICE_IPV6, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}},
     {DM_REMOTE_DEVICE_CAP, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}},
     {DM_REMOTE_DEVICE_MODEL_NUM, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}},
-    {RM_NEW_DEVICE_FOUND, RBUS_ELEMENT_TYPE_EVENT, { X_RDK_Remote_Device_GetHandler, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}},
+    {RM_NEW_DEVICE_FOUND, RBUS_ELEMENT_TYPE_EVENT, { NULL, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}},
     {RM_NUM_ENTRIES, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}}
 };
 
@@ -169,8 +169,8 @@ ANSC_STATUS Idm_Create_Rbus_Obj()
 
     // Register a row for the table such that it will be populated. 
     // This should be repeated whenever we added a new device
-    rbusTable_registerRow(rbusHandle, DM_REMOTE_DEVICE_TABLE, NULL, 
-                pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries);
+    rbusTable_registerRow(rbusHandle, DM_REMOTE_DEVICE_TABLE, 
+                        pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries, NULL);
 
     return  returnStatus;
 }
@@ -401,6 +401,18 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
             return RBUS_ERROR_BUS_ERROR;   
         }
         rbusValue_SetInt32(value, index_node->stRemoteDeviceInfo.Status);
+    }
+    if(strstr(name, ".HelloInterval"))
+    {
+        sscanf(name, "Device.X_RDK_Remote.Device.%d.HelloInterval", &index);
+        // get node from index
+        index_node = getRmDeviceNode(sidmDmlListInfo, index);
+        if(index_node == NULL)
+        {
+            CcspTraceInfo(("%s %d - index node for %d is NULL\n", __FUNCTION__, __LINE__, index));
+            return RBUS_ERROR_BUS_ERROR;
+        }
+        rbusValue_SetInt32(value, index_node->stRemoteDeviceInfo.HelloInterval);
     }
     if(strstr(name, ".MAC"))
     {
@@ -671,8 +683,8 @@ void *Idm_PublishEvent(void *data) {
         CcspTraceInfo(("%s %d - Adding row number %d\n", __FUNCTION__, __LINE__,
                             pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries));
         // add row for table
-        rbusTable_registerRow(rbusHandle, DM_REMOTE_DEVICE_TABLE, NULL,
-                pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries);
+        rbusTable_registerRow(rbusHandle, DM_REMOTE_DEVICE_TABLE, 
+                        pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries, NULL);
         
         Idm_PublishNewDeviceEvent(pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries, "Hub,Modem",120);
         sleep(1);
