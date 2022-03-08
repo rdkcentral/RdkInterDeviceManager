@@ -30,37 +30,25 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */ 
-#ifndef  _IDM_UTILS_H_
-#define  _IDM_UTILS_H_
+ */
+
+#ifndef _IDM_DATA_H_
+#define _IDM_DATA_H_
 
 #include "Idm_rbus.h"
 
-#define PSM_BROADCAST_INTERFACE_NAME      "dmsb.interdevicemanager.BroadcastInterface"
-#define PSM_DEVICE_CAPABILITIES           "dmsb.interdevicemanager.Capabilities"
-
-typedef enum _EVENT_DATA_TYPES
+typedef struct _WANMGR_CONFIG_DATA_
 {
-    EV_BOOLEAN = 1,
-    EV_INTEGER,
-    EV_STRING
+    PIDM_DML_INFO           pidmDmlInfo;
+    pthread_mutex_t         mDataMutex;
+} IDMMGR_CONFIG_DATA;
 
-}EVENT_DATA_TYPES;
+PIDM_DML_INFO IdmMgr_GetConfigData_locked(void);
 
-ANSC_STATUS addDevice(IDM_REMOTE_DEVICE_LINK_INFO *newNode);
+void IdmMgrDml_GetConfigData_release(PIDM_DML_INFO pidmDmlInfo);
 
-ANSC_STATUS updateDeviceStatus(PIDM_DML_INFO pidmDmlInfo, uint32_t index, uint32_t newStatus);
+void IdmMgr_SetConfigData_Default();
 
-EVENT_DATA_TYPES getEventType(char *event);
-
-IDM_REMOTE_DEVICE_LINK_INFO* getRmDeviceNode(const PIDM_DML_INFO pidmDmlInfo, uint32_t index);
-
-ANSC_STATUS updteSubscriptionStatus(char *event, IDM_RBUS_SUBS_STATUS *sidmRmSubStatus);
-
-int IDMMgr_RdkBus_SetParamValuesToDB( char *pParamName, char *pParamVal );
-
-int IDMMgr_RdkBus_GetParamValuesFromDB( char *pParamName, char *pReturnVal, int returnValLength );
-
-ANSC_STATUS IDMMgr_UpdateLocalDeviceData(char *IP, char *mac);
+ANSC_STATUS IdmMgr_Data_Init(void);
 
 #endif

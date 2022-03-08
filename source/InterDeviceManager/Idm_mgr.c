@@ -8,6 +8,11 @@
 
 ANSC_STATUS Idm_Init()
 {
+    if(ANSC_STATUS_FAILURE == IdmMgr_Data_Init())
+    {
+        return ANSC_STATUS_FAILURE;
+    }
+    CcspTraceInfo(("%s %d - IDM data initialisation success\n", __FUNCTION__, __LINE__));
 
     if(ANSC_STATUS_FAILURE == Idm_Rbus_Init())
     {

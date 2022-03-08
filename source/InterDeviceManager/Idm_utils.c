@@ -36,26 +36,25 @@
 
 extern ANSC_HANDLE  bus_handle;
 extern char         g_Subsystem[32];
-extern IDM_DML_LINK_LIST sidmDmlListInfo;
-extern PIDM_DML_INFO pidmDmlInfo;
+static IDM_DML_LINK_LIST sidmDmlListInfo;
 
-ANSC_STATUS addDevice(IDM_REMOTE_DEVICE_LINK_INFO *newNode, IDM_DML_LINK_LIST *sidmDmlListInfo)
+ANSC_STATUS addDevice(IDM_REMOTE_DEVICE_LINK_INFO *newNode)
 {
-    if(NULL == newNode || NULL == sidmDmlListInfo)
+    if(NULL == newNode)
         return ANSC_STATUS_FAILURE;
 
     IDM_REMOTE_DEVICE_LINK_INFO *tmp = NULL;
-    IDM_REMOTE_DEVICE_LINK_INFO *head = sidmDmlListInfo->pListHead;
+    IDM_REMOTE_DEVICE_LINK_INFO *head = sidmDmlListInfo.pListHead;
 
     if(head == NULL)
     {
-        sidmDmlListInfo->pListHead = newNode;
-        sidmDmlListInfo->pListTail = sidmDmlListInfo->pListHead;
-        sidmDmlListInfo->pListHead->next = NULL;
+        sidmDmlListInfo.pListHead = newNode;
+        sidmDmlListInfo.pListTail = sidmDmlListInfo.pListHead;
+        sidmDmlListInfo.pListHead->next = NULL;
         return ANSC_STATUS_SUCCESS;
     }
     
-    IDM_REMOTE_DEVICE_LINK_INFO *tail = sidmDmlListInfo->pListTail;
+    IDM_REMOTE_DEVICE_LINK_INFO *tail = sidmDmlListInfo.pListTail;
 
     // we should have a tail node
     if(tail == NULL)
@@ -65,18 +64,18 @@ ANSC_STATUS addDevice(IDM_REMOTE_DEVICE_LINK_INFO *newNode, IDM_DML_LINK_LIST *s
     tail->next = newNode;
     tail->next->next = NULL;
 
-    sidmDmlListInfo->pListTail = newNode;
+    sidmDmlListInfo.pListTail = newNode;
     CcspTraceInfo(("%s %d - new Device has been added\n", __FUNCTION__, __LINE__));
 
     return ANSC_STATUS_SUCCESS;
 }
 
-ANSC_STATUS updateDeviceStatus(IDM_DML_LINK_LIST *sidmDmlListInfo, uint32_t index, uint32_t newStatus)
+ANSC_STATUS updateDeviceStatus(PIDM_DML_INFO pidmDmlInfo, uint32_t index, uint32_t newStatus)
 {
-    if(NULL == sidmDmlListInfo)
+    if(NULL == pidmDmlInfo)
         return ANSC_STATUS_FAILURE;
 
-    IDM_REMOTE_DEVICE_LINK_INFO *head = sidmDmlListInfo->pListHead;
+    IDM_REMOTE_DEVICE_LINK_INFO *head = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
 
     while(head != NULL)
     {
@@ -109,10 +108,15 @@ EVENT_DATA_TYPES getEventType(char *event)
 
 // Retun device node corresponding to index
 //eg: Device.2.Status . 2 is the index. Get node for 2nd device
-IDM_REMOTE_DEVICE_LINK_INFO* getRmDeviceNode(const IDM_DML_LINK_LIST sidmDmlListInfo, uint32_t index)
+IDM_REMOTE_DEVICE_LINK_INFO* getRmDeviceNode(PIDM_DML_INFO pidmDmlInfo, uint32_t index)
 {
 
-    IDM_REMOTE_DEVICE_LINK_INFO *head = sidmDmlListInfo.pListHead;
+    if( pidmDmlInfo == NULL )
+    {
+        return  ANSC_STATUS_FAILURE;
+    }
+
+    IDM_REMOTE_DEVICE_LINK_INFO *head = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
 
      while(head != NULL)
     {
@@ -224,8 +228,13 @@ ANSC_STATUS IDMMgr_GetDeviceCapabilities(char *Capabilities)
 
 ANSC_STATUS IDMMgr_UpdateLocalDeviceData(char *IP, char *mac)
 {
+    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+    if( pidmDmlInfo == NULL )
+    {
+        return  ANSC_STATUS_FAILURE;
+    }
     /*Local device info will be stored in first entry */
-    IDM_REMOTE_DEVICE_LINK_INFO *localDevice = sidmDmlListInfo.pListHead;
+    IDM_REMOTE_DEVICE_LINK_INFO *localDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
 
     strncpy(localDevice->stRemoteDeviceInfo.MAC, mac, 17);
     strncpy(localDevice->stRemoteDeviceInfo.IPv4, IP, 16);
@@ -233,7 +242,9 @@ ANSC_STATUS IDMMgr_UpdateLocalDeviceData(char *IP, char *mac)
     IDMMgr_GetDeviceCapabilities(localDevice->stRemoteDeviceInfo.Capabilities);
     localDevice->stRemoteDeviceInfo.HelloInterval = pidmDmlInfo->stConnectionInfo.HelloInterval;
 
-    CcspTraceInfo(("[%s: %d] MAC :%s, IP: %s, Model: %s, Capabilities: %s HelloInterval %d msec\n", __FUNCTION__, __LINE__,localDevice->stRemoteDeviceInfo.MAC, 
+    CcspTraceInfo(("[%s: %d] MAC :%s, IP: %s, Model: %s, Capabilities: %s HelloInterval %d msec\n", __FUNCTION__, __LINE__,localDevice->stRemoteDeviceInfo.MAC,
                     localDevice->stRemoteDeviceInfo.IPv4, localDevice->stRemoteDeviceInfo.ModelNumber,localDevice->stRemoteDeviceInfo.Capabilities, localDevice->stRemoteDeviceInfo.HelloInterval));
+
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return ANSC_STATUS_SUCCESS;
 }

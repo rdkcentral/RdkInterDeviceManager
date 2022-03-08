@@ -38,9 +38,6 @@
 #define CONN_METHOD_ELEMENTS   3
 #define RM_NEW_DEVICE_FOUND "Device.X_RDK_Remote.DeviceChange"
 #define  ARRAY_SZ(x) (sizeof(x) / sizeof((x)[0]))
-#define DEFAULT_SUBNET_LIST "255.255.255.0"
-#define DEFAULT_HELLO_INTERVAL 10000
-#define DEFAULT_DETECTION_WINDOW 30000
 
 #define DM_CONN_HELLO_INTERVAL "Device.X_RDK_Connection.HelloInterval"
 #define DM_CONN_HELLO_IPV4SUBNET_LIST "Device.X_RDK_Connection.HelloIPv4SubnetList"
@@ -68,8 +65,6 @@ rbusHandle_t        rbusHandle;
 char                idmComponentName[32] = "IDM_RBUS";
 
 // Instance for the global structure. This will be allocated and initialised by rbus
-PIDM_DML_INFO pidmDmlInfo = NULL;
-IDM_DML_LINK_LIST sidmDmlListInfo;
 IDM_RBUS_SUBS_STATUS sidmRmSubStatus;
 
 /**************************Array declarations for RBUS registrations************************/
@@ -104,32 +99,20 @@ rbusDataElement_t idmRmCapElements[] = {
 ANSC_STATUS Idm_Create_Rbus_Obj()
 {
     ANSC_STATUS returnStatus   =  ANSC_STATUS_SUCCESS;
-    pidmDmlInfo = (PIDM_DML_INFO)AnscAllocateMemory(sizeof(IDM_DML_INFO));
     IDM_REMOTE_DEVICE_LINK_INFO *firstNode = NULL;
 
+    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
     {
         return  ANSC_STATUS_FAILURE;
     }
 
-    AnscZeroMemory(pidmDmlInfo, (sizeof(IDM_DML_INFO)));
-
-    // TODO: From where the default values should be read?
-    pidmDmlInfo->stConnectionInfo.HelloInterval = DEFAULT_HELLO_INTERVAL;
-
-    // TODO: From where the default values should be read?
-    strncpy(pidmDmlInfo->stConnectionInfo.HelloIPv4SubnetList, DEFAULT_SUBNET_LIST, sizeof(pidmDmlInfo->stConnectionInfo.HelloIPv4SubnetList));
-
-    // TODO: From where the default values should be read?
-    pidmDmlInfo->stConnectionInfo.DetectionWindow = DEFAULT_DETECTION_WINDOW;
-
-    // Initially the remote table will have a single entry with local device info 
-    pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries = 0;   
     // first node
     firstNode = (IDM_REMOTE_DEVICE_LINK_INFO*)AnscAllocateMemory(sizeof(IDM_REMOTE_DEVICE_LINK_INFO));
 
     if( firstNode == NULL )
     {
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         return  ANSC_STATUS_FAILURE;
     }
 
@@ -154,7 +137,7 @@ ANSC_STATUS Idm_Create_Rbus_Obj()
     pidmDmlInfo->stRemoteInfo.pstDeviceLink->next = NULL;
 
     firstNode->stRemoteDeviceInfo.Index = 1;
-    returnStatus = addDevice(firstNode, &sidmDmlListInfo );
+    returnStatus = addDevice(firstNode);
 
     if(returnStatus == ANSC_STATUS_SUCCESS)
     {
@@ -172,6 +155,7 @@ ANSC_STATUS Idm_Create_Rbus_Obj()
     rbusTable_registerRow(rbusHandle, DM_REMOTE_DEVICE_TABLE, 
                         pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries, NULL);
 
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return  returnStatus;
 }
 
@@ -383,9 +367,16 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
 
     rbusValue_Init(&value);
 
+     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+     if( pidmDmlInfo == NULL )
+     {
+         return  ANSC_STATUS_FAILURE;
+     }
+
     if(name == NULL)
     {
         CcspTraceInfo(("%s %d - Property get name is NULL\n", __FUNCTION__, __LINE__));
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         return RBUS_ERROR_BUS_ERROR;   
     }
     CcspTraceInfo(("%s %d - name is %s\n", __FUNCTION__, __LINE__, name));
@@ -394,10 +385,11 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
     {
         sscanf(name, "Device.X_RDK_Remote.Device.%d.Status", &index);
         // get node from index
-        index_node = getRmDeviceNode(sidmDmlListInfo, index);
+        index_node = getRmDeviceNode(pidmDmlInfo, index);
         if(index_node == NULL)
         {
             CcspTraceInfo(("%s %d - index node for %d is NULL\n", __FUNCTION__, __LINE__, index));
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_BUS_ERROR;   
         }
         rbusValue_SetInt32(value, index_node->stRemoteDeviceInfo.Status);
@@ -406,10 +398,11 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
     {
         sscanf(name, "Device.X_RDK_Remote.Device.%d.HelloInterval", &index);
         // get node from index
-        index_node = getRmDeviceNode(sidmDmlListInfo, index);
+        index_node = getRmDeviceNode(pidmDmlInfo, index);
         if(index_node == NULL)
         {
             CcspTraceInfo(("%s %d - index node for %d is NULL\n", __FUNCTION__, __LINE__, index));
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_BUS_ERROR;
         }
         rbusValue_SetInt32(value, index_node->stRemoteDeviceInfo.HelloInterval);
@@ -417,10 +410,11 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
     if(strstr(name, ".MAC"))
     {
         sscanf(name, "Device.X_RDK_Remote.Device.%d.MAC", &index);
-        index_node = getRmDeviceNode(sidmDmlListInfo, index);
+        index_node = getRmDeviceNode(pidmDmlInfo, index);
         if(index_node == NULL)
         {
             CcspTraceInfo(("%s %d - index node for %d is NULL\n", __FUNCTION__, __LINE__, index));
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_BUS_ERROR;   
         }
         rbusValue_SetString(value, index_node->stRemoteDeviceInfo.MAC);
@@ -428,10 +422,11 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
     if(strstr(name, ".IPv4"))
     {
         sscanf(name, "Device.X_RDK_Remote.Device.%d.IPv4", &index);
-        index_node = getRmDeviceNode(sidmDmlListInfo, index);
+        index_node = getRmDeviceNode(pidmDmlInfo, index);
         if(index_node == NULL)
         {
             CcspTraceInfo(("%s %d - index node for %d is NULL\n", __FUNCTION__, __LINE__, index));
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_BUS_ERROR;   
         }
         rbusValue_SetString(value, index_node->stRemoteDeviceInfo.IPv4);
@@ -439,10 +434,11 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
     if(strstr(name, ".IPv6"))
     {
         sscanf(name, "Device.X_RDK_Remote.Device.%d.IPv6", &index);
-        index_node = getRmDeviceNode(sidmDmlListInfo, index);
+        index_node = getRmDeviceNode(pidmDmlInfo, index);
         if(index_node == NULL)
         {
             CcspTraceInfo(("%s %d - index node for %d is NULL\n", __FUNCTION__, __LINE__, index));
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_BUS_ERROR;   
         }
         rbusValue_SetString(value, index_node->stRemoteDeviceInfo.IPv6);
@@ -450,10 +446,11 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
     if(strstr(name, ".Capabilities"))
     {
         sscanf(name, "Device.X_RDK_Remote.Device.%d.Capabilities", &index);
-        index_node = getRmDeviceNode(sidmDmlListInfo, index);
+        index_node = getRmDeviceNode(pidmDmlInfo, index);
         if(index_node == NULL)
         {
             CcspTraceInfo(("%s %d - index node for %d is NULL\n", __FUNCTION__, __LINE__, index));
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_BUS_ERROR;   
         }
         rbusValue_SetString(value, index_node->stRemoteDeviceInfo.Capabilities);
@@ -461,10 +458,11 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
     if(strstr(name, ".ModelNumber"))
     {
         sscanf(name, "Device.X_RDK_Remote.Device.%d.ModelNumber", &index);
-        index_node = getRmDeviceNode(sidmDmlListInfo, index);
+        index_node = getRmDeviceNode(pidmDmlInfo, index);
         if(index_node == NULL)
         {
             CcspTraceInfo(("%s %d - index node for %d is NULL\n", __FUNCTION__, __LINE__, index));
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_BUS_ERROR;   
         }
         rbusValue_SetString(value, index_node->stRemoteDeviceInfo.ModelNumber);
@@ -475,6 +473,7 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
         if(pidmDmlInfo == NULL)
         {
             CcspTraceInfo(("%s %d - Failed to get number of entries\n", __FUNCTION__, __LINE__));
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_BUS_ERROR;   
         }
         
@@ -486,6 +485,7 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
     rbusProperty_SetValue(property, value);
 
     rbusValue_Release(value);
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
 
     return RBUS_ERROR_SUCCESS;
 }
@@ -494,6 +494,11 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
 rbusError_t X_RDK_Remote_Cap_MethodHandler(rbusHandle_t handle, char const* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle)
 {
     IDM_REMOTE_DEVICE_LINK_INFO* indexNode = NULL;
+    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+    if( pidmDmlInfo == NULL )
+    {
+        return  ANSC_STATUS_FAILURE;
+    }
 
     if(strcmp(methodName, "Device.X_RDK_Remote.AddDeviceCapabilities()") == 0)
     {
@@ -504,16 +509,20 @@ rbusError_t X_RDK_Remote_Cap_MethodHandler(rbusHandle_t handle, char const* meth
 
         str = rbusValue_GetString(value, &len);
 
-        indexNode = getRmDeviceNode(sidmDmlListInfo, 1);
+        indexNode = getRmDeviceNode(pidmDmlInfo, 1);
 
         if(!indexNode)
+        {
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_BUS_ERROR;
+        }
     
         if(!strstr(indexNode->stRemoteDeviceInfo.Capabilities, str))
         {
             strcat(indexNode->stRemoteDeviceInfo.Capabilities, str);        
         }
-
+        
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         return RBUS_ERROR_SUCCESS;
     }
     else if(strcmp(methodName, "Device.X_RDK_Remote.RemoveDeviceCapabilities()") == 0)
@@ -525,10 +534,13 @@ rbusError_t X_RDK_Remote_Cap_MethodHandler(rbusHandle_t handle, char const* meth
         rbusValue_t value = rbusObject_GetValue(inParams, NULL );
         str = rbusValue_GetString(value, &len);
 
-        indexNode = getRmDeviceNode(sidmDmlListInfo, 1);
+        indexNode = getRmDeviceNode(pidmDmlInfo, 1);
 
         if(!indexNode)
+        {
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_BUS_ERROR;
+        }
 
         if(len)
         {
@@ -539,6 +551,7 @@ rbusError_t X_RDK_Remote_Cap_MethodHandler(rbusHandle_t handle, char const* meth
                 strcat(indexNode->stRemoteDeviceInfo.Capabilities, capPos + len);
             }
         }
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         return RBUS_ERROR_SUCCESS;
     }
     else if(strcmp(methodName, "Device.X_RDK_Remote.ResetDeviceCapabilities()") == 0)
@@ -550,18 +563,24 @@ rbusError_t X_RDK_Remote_Cap_MethodHandler(rbusHandle_t handle, char const* meth
 
         str = rbusValue_GetString(value, &len);
 
-        indexNode = getRmDeviceNode( sidmDmlListInfo, 1);
+        indexNode = getRmDeviceNode( pidmDmlInfo, 1);
 
         if(!indexNode)
+        {
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_BUS_ERROR;
+        }
         memset(indexNode->stRemoteDeviceInfo.Capabilities, 0, sizeof(indexNode->stRemoteDeviceInfo.Capabilities));
         /* TODO: Get default capability list and store it in node*/
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         return RBUS_ERROR_SUCCESS;
     }
     else
     {
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         return RBUS_ERROR_BUS_ERROR;
     }
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -575,6 +594,7 @@ rbusError_t X_RDK_Connection_GetHandler(rbusHandle_t handle, rbusProperty_t prop
     rbusValue_Init(&value);
     name = rbusProperty_GetName(property);
 
+    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if(pidmDmlInfo == NULL)
         return RBUS_ERROR_BUS_ERROR;
 
@@ -596,12 +616,14 @@ rbusError_t X_RDK_Connection_GetHandler(rbusHandle_t handle, rbusProperty_t prop
     }
     else
     {
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         return RBUS_ERROR_BUS_ERROR;
     }
 
     rbusProperty_SetValue(property, value);
 
     rbusValue_Release(value); 
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
 
     return RBUS_ERROR_SUCCESS;   
 
@@ -614,6 +636,7 @@ rbusError_t X_RDK_Connection_SetHandler(rbusHandle_t handle, rbusProperty_t prop
     rbusValue_t value = rbusProperty_GetValue(prop);
     rbusValueType_t type = rbusValue_GetType(value);
 
+    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if(pidmDmlInfo == NULL)
         return RBUS_ERROR_BUS_ERROR;
 
@@ -621,6 +644,7 @@ rbusError_t X_RDK_Connection_SetHandler(rbusHandle_t handle, rbusProperty_t prop
     {
         if (type != RBUS_INT32)
         {
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_INVALID_INPUT;
         }
 
@@ -630,6 +654,7 @@ rbusError_t X_RDK_Connection_SetHandler(rbusHandle_t handle, rbusProperty_t prop
     {
         if (type != RBUS_STRING)
         {
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_INVALID_INPUT;
         }
 
@@ -639,6 +664,7 @@ rbusError_t X_RDK_Connection_SetHandler(rbusHandle_t handle, rbusProperty_t prop
     {
         if (type != RBUS_STRING)
         {
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_INVALID_INPUT;
         }
         strncpy(pidmDmlInfo->stConnectionInfo.HelloIPv6SubnetList, rbusValue_GetString(value, NULL), sizeof(pidmDmlInfo->stConnectionInfo.HelloIPv6SubnetList));
@@ -647,11 +673,13 @@ rbusError_t X_RDK_Connection_SetHandler(rbusHandle_t handle, rbusProperty_t prop
     {
         if (type != RBUS_INT32)
         {
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_INVALID_INPUT;
         }
 
         pidmDmlInfo->stConnectionInfo.DetectionWindow = rbusValue_GetInt32(value);
     }
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return RBUS_ERROR_SUCCESS;
 }
 
@@ -667,6 +695,7 @@ void *Idm_PublishEvent(void *data) {
     int my_status = DEVICE_CONNECTED, my_interval = 10;
     CcspTraceInfo(("%s %d - pthread running!\n", __FUNCTION__, __LINE__, index ));
     // add 10 devices
+    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     while(i <= 10)
     {
         CcspTraceInfo(("%s %d - Pusblished event Device.X_RDK_Remote.Device.3.Status value %d!\n", __FUNCTION__, __LINE__,my_status));
@@ -679,7 +708,7 @@ void *Idm_PublishEvent(void *data) {
         pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries++;
         newNode->stRemoteDeviceInfo.Index = pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries;
         // add new device in object
-        addDevice(newNode, &sidmDmlListInfo);
+        addDevice(newNode);
         CcspTraceInfo(("%s %d - Adding row number %d\n", __FUNCTION__, __LINE__,
                             pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries));
         // add row for table
@@ -708,14 +737,15 @@ void *Idm_PublishEvent(void *data) {
     //update status of 3 and 4 devices
     CcspTraceInfo(("%s %d - updating  devices\n", __FUNCTION__, __LINE__));
     // update in object
-    updateDeviceStatus(&sidmDmlListInfo, 3 , DEVICE_NOT_DETECTED);
+    updateDeviceStatus(pidmDmlInfo, 3 , DEVICE_NOT_DETECTED);
     my_status = DEVICE_NOT_DETECTED;
     Idm_PublishDmEvent("Device.X_RDK_Remote.Device.3.Status", &my_status, 120);
     //update status in object
-    updateDeviceStatus(&sidmDmlListInfo, 4 , DEVICE_AUTHENTICATED);
+    updateDeviceStatus(pidmDmlInfo, 4 , DEVICE_AUTHENTICATED);
     my_status = DEVICE_AUTHENTICATED;
     // publish to wan manager
     Idm_PublishDmEvent("Device.X_RDK_Remote.Device.4.Status", &my_status, 120);
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     while(1);
 }
 

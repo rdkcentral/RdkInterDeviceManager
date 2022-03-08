@@ -38,27 +38,31 @@
 
 #define DM_REMOTE_DEVICE_TABLE "Device.X_RDK_Remote.Device"
 
-extern PIDM_DML_INFO pidmDmlInfo;
-extern IDM_DML_LINK_LIST sidmDmlListInfo;
 extern rbusHandle_t        rbusHandle;
 
 ANSC_STATUS IDMMgr_UpdateDeviceList(char *mac, char *ip)
 {
     int entryFount = 0;
     ANSC_STATUS returnStatus   =  ANSC_STATUS_SUCCESS;
-    IDM_REMOTE_DEVICE_LINK_INFO *temp = sidmDmlListInfo.pListHead;
 
-    while(temp!=NULL)
+    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+    if( pidmDmlInfo == NULL )
     {
-        if(strcmp(temp->stRemoteDeviceInfo.MAC, mac) == 0)
+        return  ANSC_STATUS_FAILURE;
+    }
+
+    IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
+    while(remoteDevice!=NULL)
+    {
+        if(strcmp(remoteDevice->stRemoteDeviceInfo.MAC, mac) == 0)
         {
-            CcspTraceInfo(("Entry found %s  \n",temp->stRemoteDeviceInfo.MAC));
+            CcspTraceInfo(("Entry found %s  \n",remoteDevice->stRemoteDeviceInfo.MAC));
             entryFount = 1;
-            temp->stRemoteDeviceInfo.Last_update = time(0);
-            temp->stRemoteDeviceInfo.Status = DEVICE_DETECTED;
+            remoteDevice->stRemoteDeviceInfo.Last_update = time(0);
+            remoteDevice->stRemoteDeviceInfo.Status = DEVICE_DETECTED;
             break;
         }
-        temp=temp->next;
+        remoteDevice=remoteDevice->next;
     }
 
     if(!entryFount)
@@ -69,6 +73,7 @@ ANSC_STATUS IDMMgr_UpdateDeviceList(char *mac, char *ip)
 
         if( newNode == NULL )
         {
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return  ANSC_STATUS_FAILURE;
         }
         newNode->stRemoteDeviceInfo.Status = DEVICE_DETECTED;
@@ -79,7 +84,7 @@ ANSC_STATUS IDMMgr_UpdateDeviceList(char *mac, char *ip)
         newNode->stRemoteDeviceInfo.Last_update = time(0);
 
 
-        returnStatus = addDevice(newNode, &sidmDmlListInfo );
+        returnStatus = addDevice(newNode);
 
         if(returnStatus == ANSC_STATUS_SUCCESS)
         {
@@ -89,37 +94,51 @@ ANSC_STATUS IDMMgr_UpdateDeviceList(char *mac, char *ip)
         // add row for table
         rbusTable_registerRow(rbusHandle, DM_REMOTE_DEVICE_TABLE, 
                                 pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries, NULL);
+
     }
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return  returnStatus;
 }
 
 
 ANSC_STATUS IDMMgr_UpdateDeviceStatus()
 {
+    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+    if( pidmDmlInfo == NULL )
+    {
+        return  ANSC_STATUS_FAILURE;
+    }
 
-    IDM_REMOTE_DEVICE_LINK_INFO *temp = sidmDmlListInfo.pListHead->next;
+    IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink->next;
 
-    while(temp!=NULL)
+    while(remoteDevice!=NULL)
     {
         time_t current_time = time(0);
-        if(difftime(current_time, temp->stRemoteDeviceInfo.Last_update) > 30)
+        if(difftime(current_time, remoteDevice->stRemoteDeviceInfo.Last_update) > 30)
         {
-            temp->stRemoteDeviceInfo.Status = DEVICE_NOT_DETECTED;
+            remoteDevice->stRemoteDeviceInfo.Status = DEVICE_NOT_DETECTED;
         }
-        temp=temp->next;
+        remoteDevice=remoteDevice->next;
     }
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return ANSC_STATUS_SUCCESS;
 }
 
 void IDMMgr_print_status()
 {
-
-    IDM_REMOTE_DEVICE_LINK_INFO *temp = sidmDmlListInfo.pListHead;
-    while(temp!=NULL)
+    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+    if( pidmDmlInfo == NULL )
     {
-        CcspTraceInfo((" %s %d index %d MAC :%s , IPv4 : %s Status : %d \n",__FUNCTION__, __LINE__, temp->stRemoteDeviceInfo.Index, temp->stRemoteDeviceInfo.MAC,temp->stRemoteDeviceInfo.IPv4, temp->stRemoteDeviceInfo.Status));
-        temp=temp->next;
+        return  ANSC_STATUS_FAILURE;
     }
+
+    IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
+    while(remoteDevice!=NULL)
+    {
+        CcspTraceInfo((" %s %d index %d MAC :%s , IPv4 : %s Status : %d \n",__FUNCTION__, __LINE__, remoteDevice->stRemoteDeviceInfo.Index, remoteDevice->stRemoteDeviceInfo.MAC,remoteDevice->stRemoteDeviceInfo.IPv4, remoteDevice->stRemoteDeviceInfo.Status));
+        remoteDevice=remoteDevice->next;
+    }
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
 }
 
 ANSC_STATUS IDMMgr_GetBroadcastInterfaceName(char *name)
@@ -267,7 +286,10 @@ static void* IDMMgr_Heart_Beat_thread(void *arg )
 
     CcspTraceInfo(("\n[%s: %d] %s Mac : %s Ipv4 : %s \n", __FUNCTION__, __LINE__, ifr.ifr_name, serverInterfaceMac, serverInterfaceIP));
     IDMMgr_UpdateLocalDeviceData(serverInterfaceIP, serverInterfaceMac);
+
+    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     int HelloInterval = (pidmDmlInfo->stConnectionInfo.HelloInterval /1000);
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
 
     /* get Interface Broadcast address */
     if(ioctl(socket_server, SIOCGIFBRDADDR, &ifr) != 0)
