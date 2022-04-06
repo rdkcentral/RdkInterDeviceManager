@@ -52,6 +52,10 @@
 #define  RDK_COMMON_COMPONENT_STATE_Blocked                3
 #define  RDK_COMMON_COMPONENT_STATE_Paused                 3
 
+#define MAC_ADDR_SIZE 18
+#define IPv4_ADDR_SIZE 16
+#define IPv6_ADDR_SIZE 128
+
 typedef  struct
 _COMPONENT_COMMON_INTER_DEVICE_MANAGER
 {
@@ -81,6 +85,29 @@ typedef enum _IDM_REMOTE_DEVICE_STATUS
 
 IDM_REMOTE_DEVICE_STATUS;
 
+typedef struct {
+    char interface[20];
+    uint  port;
+    uint  discovery_interval;
+    uint  loss_detection_window;
+} discovery_config_t;
+
+typedef struct {
+    char mac_addr[MAC_ADDR_SIZE];
+    char ipv4_addr[IPv4_ADDR_SIZE];
+    char ipv6_addr[IPv6_ADDR_SIZE];
+} device_info_t;
+
+typedef struct {
+    char interface[10];
+    uint  port;
+    device_info_t* device;
+} connection_config_t;
+
+typedef struct {
+    int conn; //descriptor/sock
+} connection_info_t;
+
 typedef  struct _IDM_REMOTE_DEVICE_INFO
 {
     IDM_REMOTE_DEVICE_STATUS   Status;
@@ -91,7 +118,7 @@ typedef  struct _IDM_REMOTE_DEVICE_INFO
     char                       Capabilities[1024];
     char                       ModelNumber[256];
     unsigned int               Index;
-    time_t                     Last_update;
+    connection_info_t          conn_info;
 }
 IDM_REMOTE_DEVICE_INFO,  *PIDM_REMOTE_DEVICE_INFO;
 
@@ -123,6 +150,9 @@ typedef  struct _IDM_CONNECTION_INFO
     char HelloIPv4SubnetList[256];
     char HelloIPv6SubnetList[1024];
     unsigned int DetectionWindow;
+    char Interface[20];
+    char Capabilities[1024];
+
 }
 IDM_CONNECTION_INFO,  *PIDM_CONNECTION_INFO;
 

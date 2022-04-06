@@ -30,35 +30,31 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */ 
-#ifndef  _IDM_UTILS_H_
-#define  _IDM_UTILS_H_
+ */
+
+#ifndef _IDM_CB_H_
+#define _IDM_CB_H_
 
 #include "Idm_rbus.h"
 
-
-typedef enum _EVENT_DATA_TYPES
+ANSC_STATUS IDMMgr_Start_Device_Discovery();
+int discovery_cb(device_info_t* Device, uint discovery_status, uint authentication_status );
+int connection_cb(device_info_t* Device, connection_info_t* conn_info, uint encryption_status);
+int rcv_message_cb( connection_info_t* conn_info, char *payload);
+/*dummy function */
+int start_discovery(discovery_config_t* discoveryConf, int (*discovery_cb)(device_info_t* Device, uint discovery_status, uint authentication_status))
 {
-    EV_BOOLEAN = 1,
-    EV_INTEGER,
-    EV_STRING
+}
+int open_remote_connection(connection_config_t* connectionConf, int (*connection_cb)(device_info_t* Device, connection_info_t* conn_info, uint encryption_status), int (*rcv_message_cb)( connection_info_t* conn_info, char *payload)) 
+{
+}
 
-}EVENT_DATA_TYPES;
+int send_remote_message(connection_info_t* conn_info, char *payload)
+{
+}
 
-ANSC_STATUS addDevice(IDM_REMOTE_DEVICE_LINK_INFO *newNode);
-
-ANSC_STATUS updateDeviceStatus(PIDM_DML_INFO pidmDmlInfo, uint32_t index, uint32_t newStatus);
-
-EVENT_DATA_TYPES getEventType(char *event);
-
-IDM_REMOTE_DEVICE_LINK_INFO* getRmDeviceNode(const PIDM_DML_INFO pidmDmlInfo, uint32_t index);
-
-ANSC_STATUS updteSubscriptionStatus(char *event, IDM_RBUS_SUBS_STATUS *sidmRmSubStatus);
-
-int IDMMgr_RdkBus_SetParamValuesToDB( char *pParamName, char *pParamVal );
-
-int IDMMgr_RdkBus_GetParamValuesFromDB( char *pParamName, char *pReturnVal, int returnValLength );
-
-ANSC_STATUS IDMMgr_UpdateLocalDeviceData();
+int close_remote_connection(connection_info_t* conn_info)
+{
+}
 
 #endif

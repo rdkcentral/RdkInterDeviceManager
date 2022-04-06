@@ -37,6 +37,9 @@
 
 #include "Idm_rbus.h"
 
+#define PSM_BROADCAST_INTERFACE_NAME      "dmsb.interdevicemanager.BroadcastInterface"
+#define PSM_DEVICE_CAPABILITIES           "dmsb.interdevicemanager.Capabilities"
+
 typedef struct _WANMGR_CONFIG_DATA_
 {
     PIDM_DML_INFO           pidmDmlInfo;

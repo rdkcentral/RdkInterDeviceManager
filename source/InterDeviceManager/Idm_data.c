@@ -40,6 +40,40 @@
 
 IDMMGR_CONFIG_DATA gpidmDmlInfo;
 
+static int IdmMgr_get_IDM_ParametersFromPSM()
+{
+    int retPsmGet = CCSP_SUCCESS;
+    char param_value[256];
+    char param_name[512];
+
+    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+    _ansc_memset(param_name, 0, sizeof(param_name));
+    _ansc_memset(param_value, 0, sizeof(param_value));
+    _ansc_sprintf(param_name, PSM_DEVICE_CAPABILITIES);
+
+    retPsmGet = IDMMgr_RdkBus_GetParamValuesFromDB(param_name,param_value,sizeof(param_value));
+
+    if (retPsmGet == CCSP_SUCCESS)
+    {
+        AnscCopyString(pidmDmlInfo->stConnectionInfo.Capabilities, param_value);
+    }
+
+    _ansc_memset(param_name, 0, sizeof(param_name));
+    _ansc_memset(param_value, 0, sizeof(param_value));
+    _ansc_sprintf(param_name, PSM_BROADCAST_INTERFACE_NAME);
+
+    retPsmGet = IDMMgr_RdkBus_GetParamValuesFromDB(param_name,param_value,sizeof(param_value));
+
+    if (retPsmGet == CCSP_SUCCESS)
+    {
+        AnscCopyString(pidmDmlInfo->stConnectionInfo.Interface, param_value);
+    }
+
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+
+    return retPsmGet;
+}
+
 PIDM_DML_INFO IdmMgr_GetConfigData_locked(void)
 {
     //lock
@@ -93,6 +127,7 @@ ANSC_STATUS IdmMgr_Data_Init(void)
     gpidmDmlInfo.pidmDmlInfo = (PIDM_DML_INFO)AnscAllocateMemory(sizeof(IDM_DML_INFO));
 
     IdmMgr_SetConfigData_Default();
+    IdmMgr_get_IDM_ParametersFromPSM();
     pthread_mutex_init(&(gpidmDmlInfo.mDataMutex), &(muttex_attr));
     return ANSC_STATUS_SUCCESS;
 }

@@ -32,6 +32,8 @@
  * limitations under the License.
  */
 
+#include <net/if.h>
+#include <sys/ioctl.h>
 #include "Idm_rbus.h"
 
 extern ANSC_HANDLE  bus_handle;
@@ -206,28 +208,12 @@ int IDMMgr_RdkBus_SetParamValuesToDB( char *pParamName, char *pParamVal )
     return retPsmSet;
 }
 
-ANSC_STATUS IDMMgr_GetDeviceCapabilities(char *Capabilities)
+
+ANSC_STATUS IDMMgr_UpdateLocalDeviceData()
 {
-    int retPsmGet = CCSP_SUCCESS;
-    char param_value[1024];
-    char param_name[512];
-
-    _ansc_memset(param_name, 0, sizeof(param_name));
-    _ansc_memset(param_value, 0, sizeof(param_value));
-    _ansc_sprintf(param_name, PSM_DEVICE_CAPABILITIES);
-
-    retPsmGet = IDMMgr_RdkBus_GetParamValuesFromDB(param_name,param_value,sizeof(param_value));
-
-    if (retPsmGet == CCSP_SUCCESS)
-    {
-        AnscCopyString(Capabilities, param_value);
-    }
-
-    return ANSC_STATUS_SUCCESS;
-}
-
-ANSC_STATUS IDMMgr_UpdateLocalDeviceData(char *IP, char *mac)
-{
+    struct  ifreq ifr;
+    int      fd = -1;
+    
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
     {
@@ -236,10 +222,41 @@ ANSC_STATUS IDMMgr_UpdateLocalDeviceData(char *IP, char *mac)
     /*Local device info will be stored in first entry */
     IDM_REMOTE_DEVICE_LINK_INFO *localDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
 
-    strncpy(localDevice->stRemoteDeviceInfo.MAC, mac, 17);
-    strncpy(localDevice->stRemoteDeviceInfo.IPv4, IP, 16);
+    if (( fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+    {
+        CcspTraceInfo(("echo reply socket creation V4 failed : %s", strerror(errno)));
+        return ANSC_STATUS_FAILURE;
+    }
+
+    memset(&ifr, 0x00, sizeof(ifr));
+    strcpy(ifr.ifr_name, pidmDmlInfo->stConnectionInfo.Interface);
+
+    /* Wait for interface to come up */
+    ioctl(fd, SIOCGIFFLAGS, &ifr);
+    while(!((ifr.ifr_flags & ( IFF_UP | IFF_BROADCAST )) == ( IFF_UP | IFF_BROADCAST )))
+    {
+        ioctl(fd, SIOCGIFFLAGS, &ifr);
+        CcspTraceInfo(("[%s: %d] Wait for interface to come up\n", __FUNCTION__, __LINE__));
+        sleep(2);
+    }
+
+    /* get Interface MAC */
+    ioctl(fd, SIOCGIFHWADDR, &ifr);
+    const unsigned char* mac=(unsigned char*)ifr.ifr_hwaddr.sa_data;
+    sprintf(localDevice->stRemoteDeviceInfo.MAC,"%02X:%02X:%02X:%02X:%02X:%02X",
+            mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
+
+    /* get Interface IPv4 */
+    ifr.ifr_addr.sa_family = AF_INET;
+    ioctl(fd, SIOCGIFADDR, &ifr);
+    sprintf(localDevice->stRemoteDeviceInfo.IPv4,"%s",inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));
+
+    //TODO: Update IPv6 address
+    close(fd);
+
+
     platform_hal_GetModelName(localDevice->stRemoteDeviceInfo.ModelNumber);
-    IDMMgr_GetDeviceCapabilities(localDevice->stRemoteDeviceInfo.Capabilities);
+    strcpy(localDevice->stRemoteDeviceInfo.Capabilities, pidmDmlInfo->stConnectionInfo.Capabilities);
     localDevice->stRemoteDeviceInfo.HelloInterval = pidmDmlInfo->stConnectionInfo.HelloInterval;
 
     CcspTraceInfo(("[%s: %d] MAC :%s, IP: %s, Model: %s, Capabilities: %s HelloInterval %d msec\n", __FUNCTION__, __LINE__,localDevice->stRemoteDeviceInfo.MAC,

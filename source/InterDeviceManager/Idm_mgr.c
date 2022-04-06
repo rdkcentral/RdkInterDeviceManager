@@ -20,11 +20,19 @@ ANSC_STATUS Idm_Init()
     }       
     CcspTraceInfo(("%s %d - IDM Rbus initialisation success\n", __FUNCTION__, __LINE__)); 
 
-    if(IDMMgr_Start_HeartBeat_Thread() == ANSC_STATUS_FAILURE)
+    //TODO: Wait for mesh network
+    if(IDMMgr_UpdateLocalDeviceData()== ANSC_STATUS_FAILURE)
     {
-       CcspTraceInfo(("%s %d - IDM HeartBeat_Thread initialisation Failed\n", __FUNCTION__, __LINE__));
+       CcspTraceInfo(("%s %d - IDM UpdateLocalDeviceData initialisation Failed\n", __FUNCTION__, __LINE__));
     }
-    CcspTraceInfo(("%s %d - IDM HeartBeat_Thread initialisation success\n", __FUNCTION__, __LINE__));
+    
+    CcspTraceInfo(("%s %d - IDM UpdateLocalDeviceData success\n", __FUNCTION__, __LINE__));
+
+    if(IDMMgr_Start_Device_Discovery() == ANSC_STATUS_FAILURE)
+    {
+       CcspTraceInfo(("%s %d - IDM Device_Discovery initialisation Failed\n", __FUNCTION__, __LINE__));
+    }
+    CcspTraceInfo(("%s %d - IDM Device_Discovery initialisation success\n", __FUNCTION__, __LINE__));
     CcspTraceInfo(("%s %d - IDM initialisation success\n", __FUNCTION__, __LINE__)); 
 
     return ANSC_STATUS_SUCCESS;
