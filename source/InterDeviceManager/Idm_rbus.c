@@ -43,6 +43,8 @@
 #define DM_CONN_HELLO_IPV4SUBNET_LIST "Device.X_RDK_Connection.HelloIPv4SubnetList"
 #define DM_CONN_HELLO_IPV6SUBNET_LIST "Device.X_RDK_Connection.HelloIPv6SubnetList"
 #define DM_CONN_DETECTION_WINDOW "Device.X_RDK_Connection.DetectionWindow"
+#define DM_CONN_INTF "Device.X_RDK_Connection.Interface"
+#define DM_CONN_PORT "Device.X_RDK_Connection.Port"
 
 // table parameters
 #define DM_REMOTE_DEVICE_TABLE "Device.X_RDK_Remote.Device" 
@@ -58,8 +60,10 @@
 #define DM_REMOTE_DEVICE_ADD_CAP "Device.X_RDK_Remote.AddDeviceCapabilities()"
 #define DM_REMOTE_DEVICE_REM_CAP "Device.X_RDK_Remote.RemoveDeviceCapabilities()"
 #define DM_REMOTE_DEVICE_RESET_CAP "Device.X_RDK_Remote.ResetDeviceCapabilities()"
+#define DM_REMOTE_DEVICE_INVOKE "Device.X_RDK_Remote.Invoke()"
 
 #define RM_NUM_ENTRIES "Device.X_RDK_Remote.DeviceNumberOfEntries"
+#define RM_PORT "Device.X_RDK_Remote.Port"
 
 rbusHandle_t        rbusHandle;
 char                idmComponentName[32] = "IDM_RBUS";
@@ -78,7 +82,8 @@ rbusDataElement_t idmRmPublishElements[] = {
     {DM_REMOTE_DEVICE_CAP, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}},
     {DM_REMOTE_DEVICE_MODEL_NUM, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}},
     {RM_NEW_DEVICE_FOUND, RBUS_ELEMENT_TYPE_EVENT, { NULL, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}},
-    {RM_NUM_ENTRIES, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}}
+    {RM_NUM_ENTRIES, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}},
+    {RM_PORT, RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, X_RDK_Remote_Device_SetHandler, NULL, NULL, NULL, NULL}}
 };
 
 //2. local data
@@ -86,14 +91,17 @@ rbusDataElement_t idmConnHcElements[] = {
     {DM_CONN_HELLO_INTERVAL, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}},
     {DM_CONN_HELLO_IPV4SUBNET_LIST, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}},
     {DM_CONN_HELLO_IPV6SUBNET_LIST, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}},
-    {DM_CONN_DETECTION_WINDOW, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}}
+    {DM_CONN_DETECTION_WINDOW, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}},
+    {DM_CONN_INTF, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}},
+    {DM_CONN_PORT, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}}
 };
 
 //3. Remote cap
 rbusDataElement_t idmRmCapElements[] = {
-        {DM_REMOTE_DEVICE_ADD_CAP, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_Cap_MethodHandler}},
-        {DM_REMOTE_DEVICE_REM_CAP, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_Cap_MethodHandler}},
-        {DM_REMOTE_DEVICE_RESET_CAP, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_Cap_MethodHandler}}
+        {DM_REMOTE_DEVICE_ADD_CAP, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
+        {DM_REMOTE_DEVICE_REM_CAP, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
+        {DM_REMOTE_DEVICE_RESET_CAP, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
+	{DM_REMOTE_DEVICE_INVOKE, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}}
     };
 
 ANSC_STATUS Idm_Create_Rbus_Obj()
@@ -480,6 +488,19 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
         CcspTraceInfo(("%s %d - Number of entries:%d\n", __FUNCTION__, __LINE__, 
                             pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries));
     }
+    else if (strcmp(name, RM_PORT) == 0)
+    {
+        if(pidmDmlInfo == NULL)
+        {
+            CcspTraceInfo(("%s %d - Failed to get remote port\n", __FUNCTION__, __LINE__));
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            return RBUS_ERROR_BUS_ERROR;
+        }
+
+        rbusValue_SetInt32(value, pidmDmlInfo->stRemoteInfo.Port);
+        CcspTraceInfo(("%s %d - Port :%d\n", __FUNCTION__, __LINE__,
+                            pidmDmlInfo->stRemoteInfo.Port));
+    }
 
     rbusProperty_SetValue(property, value);
 
@@ -490,7 +511,7 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
 }
 
 /****************************************Cap handler**********************************/
-rbusError_t X_RDK_Remote_Cap_MethodHandler(rbusHandle_t handle, char const* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle)
+rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle)
 {
     IDM_REMOTE_DEVICE_LINK_INFO* indexNode = NULL;
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
@@ -574,6 +595,10 @@ rbusError_t X_RDK_Remote_Cap_MethodHandler(rbusHandle_t handle, char const* meth
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         return RBUS_ERROR_SUCCESS;
     }
+    else if(strcmp(methodName, "Device.X_RDK_Remote.Invoke()") == 0)
+    {
+        /* TODO: Actual implementation */
+    }
     else
     {
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
@@ -612,6 +637,14 @@ rbusError_t X_RDK_Connection_GetHandler(rbusHandle_t handle, rbusProperty_t prop
     else if (strcmp(name, "Device.X_RDK_Connection.DetectionWindow") == 0)
     {
         rbusValue_SetInt32(value, pidmDmlInfo->stConnectionInfo.DetectionWindow);
+    }
+    else if (strcmp(name, "Device.X_RDK_Connection.Interface") == 0)
+    {
+        rbusValue_SetString(value, pidmDmlInfo->stConnectionInfo.Interface);
+    }
+    else if (strcmp(name, "Device.X_RDK_Connection.Port") == 0)
+    {
+        rbusValue_SetInt32(value, pidmDmlInfo->stConnectionInfo.Port);
     }
     else
     {
@@ -678,6 +711,50 @@ rbusError_t X_RDK_Connection_SetHandler(rbusHandle_t handle, rbusProperty_t prop
 
         pidmDmlInfo->stConnectionInfo.DetectionWindow = rbusValue_GetInt32(value);
     }
+    if(strcmp(name, "Device.X_RDK_Connection.Interface") == 0)
+    {
+        if (type != RBUS_STRING)
+        {
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            return RBUS_ERROR_INVALID_INPUT;
+        }
+        strncpy(pidmDmlInfo->stConnectionInfo.Interface, rbusValue_GetString(value, NULL), sizeof(pidmDmlInfo->stConnectionInfo.Interface));
+    }
+    if(strcmp(name, "Device.X_RDK_Connection.Port") == 0)
+    {
+        if (type != RBUS_INT32)
+        {
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+	    return RBUS_ERROR_INVALID_INPUT;
+	}
+	pidmDmlInfo->stConnectionInfo.Port = rbusValue_GetInt32(value);
+    }
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+    return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t X_RDK_Remote_Device_SetHandler(rbusHandle_t handle, rbusProperty_t prop, rbusSetHandlerOptions_t* opts)
+{
+    (void)opts;
+    char const* name = rbusProperty_GetName(prop);
+    rbusValue_t value = rbusProperty_GetValue(prop);
+    rbusValueType_t type = rbusValue_GetType(value);
+
+    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+    if(pidmDmlInfo == NULL)
+        return RBUS_ERROR_BUS_ERROR;
+
+    if(strcmp(name, "Device.X_RDK_Remote.Port") == 0)
+    {
+        if (type != RBUS_INT32)
+        {
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            CcspTraceInfo(("%s %d - set Device.X_RDK_Remote.Port Failed\n", __FUNCTION__, __LINE__));
+            return RBUS_ERROR_INVALID_INPUT;
+        }
+        pidmDmlInfo->stRemoteInfo.Port = rbusValue_GetInt32(value);
+    }
+    CcspTraceInfo(("%s %d - Device.X_RDK_Remote.Port updated to %d\n", __FUNCTION__, __LINE__, pidmDmlInfo->stRemoteInfo.Port));
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return RBUS_ERROR_SUCCESS;
 }

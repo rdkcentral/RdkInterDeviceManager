@@ -37,6 +37,9 @@
 #define DEFAULT_SUBNET_LIST "255.255.255.0"
 #define DEFAULT_HELLO_INTERVAL 10000 /* 10000 msec */
 #define DEFAULT_DETECTION_WINDOW 30000 /* 30000 msec */
+#define DEFAULT_BC_PORT 1234
+#define DEFAULT_BC_INTF "br403"
+#define DEFAULT_RM_PORT 4321
 
 IDMMGR_CONFIG_DATA gpidmDmlInfo;
 
@@ -105,11 +108,12 @@ void IdmMgr_SetConfigData_Default()
         pidmDmlInfo->stConnectionInfo.HelloInterval = DEFAULT_HELLO_INTERVAL;
 
         strncpy(pidmDmlInfo->stConnectionInfo.HelloIPv4SubnetList, DEFAULT_SUBNET_LIST, sizeof(pidmDmlInfo->stConnectionInfo.HelloIPv4SubnetList));
-
+        strncpy(pidmDmlInfo->stConnectionInfo.Interface, DEFAULT_BC_INTF, sizeof(pidmDmlInfo->stConnectionInfo.Interface));
         pidmDmlInfo->stConnectionInfo.DetectionWindow = DEFAULT_DETECTION_WINDOW;
-
+        pidmDmlInfo->stConnectionInfo.Port = DEFAULT_BC_PORT;
         // Initially the remote table will have a single entry with local device info
         pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries = 0;
+	pidmDmlInfo->stRemoteInfo.Port = DEFAULT_RM_PORT;
     }
 
 }

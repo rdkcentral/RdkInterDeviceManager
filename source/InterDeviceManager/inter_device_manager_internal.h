@@ -140,6 +140,7 @@ typedef  struct _IDM_REMOTE_INFO
 {
     IDM_REMOTE_DEVICE_CAP_INFO      stRemoteDeviceCapInfo;
     unsigned int                    ulDeviceNumberOfEntries;
+    unsigned int                    Port;
     IDM_REMOTE_DEVICE_LINK_INFO     *pstDeviceLink;
 }
 IDM_REMOTE_INFO,  *PIDM_REMOTE_INFO;
@@ -150,9 +151,9 @@ typedef  struct _IDM_CONNECTION_INFO
     char HelloIPv4SubnetList[256];
     char HelloIPv6SubnetList[1024];
     unsigned int DetectionWindow;
-    char Interface[20];
     char Capabilities[1024];
-
+    char Interface[32];
+    unsigned int Port;
 }
 IDM_CONNECTION_INFO,  *PIDM_CONNECTION_INFO;
 

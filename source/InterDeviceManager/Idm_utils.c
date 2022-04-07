@@ -210,54 +210,61 @@ ANSC_STATUS IDMMgr_UpdateLocalDeviceData()
 {
     struct  ifreq ifr;
     int      fd = -1;
-    
+
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
     {
         return  ANSC_STATUS_FAILURE;
     }
     /*Local device info will be stored in first entry */
-    IDM_REMOTE_DEVICE_LINK_INFO *localDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
-
-    if (( fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+    IDM_REMOTE_DEVICE_LINK_INFO *localDevice = NULL;
+    localDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
+    if (localDevice)
     {
-        CcspTraceInfo(("echo reply socket creation V4 failed : %s", strerror(errno)));
-        return ANSC_STATUS_FAILURE;
-    }
+        if (( fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+        {
+            CcspTraceInfo(("echo reply socket creation V4 failed : %s", strerror(errno)));
+            return ANSC_STATUS_FAILURE;
+        }
 
-    memset(&ifr, 0x00, sizeof(ifr));
-    strcpy(ifr.ifr_name, pidmDmlInfo->stConnectionInfo.Interface);
+        memset(&ifr, 0x00, sizeof(ifr));
+        strcpy(ifr.ifr_name, pidmDmlInfo->stConnectionInfo.Interface);
 
-    /* Wait for interface to come up */
-    ioctl(fd, SIOCGIFFLAGS, &ifr);
-    while(!((ifr.ifr_flags & ( IFF_UP | IFF_BROADCAST )) == ( IFF_UP | IFF_BROADCAST )))
-    {
+        /* Wait for interface to come up */
         ioctl(fd, SIOCGIFFLAGS, &ifr);
-        CcspTraceInfo(("[%s: %d] Wait for interface to come up\n", __FUNCTION__, __LINE__));
-        sleep(2);
-    }
+        while(!((ifr.ifr_flags & ( IFF_UP | IFF_BROADCAST )) == ( IFF_UP | IFF_BROADCAST )))
+        {
+            ioctl(fd, SIOCGIFFLAGS, &ifr);
+            CcspTraceInfo(("[%s: %d] Wait for interface to come up\n", __FUNCTION__, __LINE__));
+            sleep(2);
+        }
 
-    /* get Interface MAC */
-    ioctl(fd, SIOCGIFHWADDR, &ifr);
-    const unsigned char* mac=(unsigned char*)ifr.ifr_hwaddr.sa_data;
-    sprintf(localDevice->stRemoteDeviceInfo.MAC,"%02X:%02X:%02X:%02X:%02X:%02X",
-            mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
+        /* get Interface MAC */
+        ioctl(fd, SIOCGIFHWADDR, &ifr);
+        const unsigned char* mac=(unsigned char*)ifr.ifr_hwaddr.sa_data;
+        sprintf(localDevice->stRemoteDeviceInfo.MAC,"%02X:%02X:%02X:%02X:%02X:%02X",
+                mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
 
-    /* get Interface IPv4 */
-    ifr.ifr_addr.sa_family = AF_INET;
-    ioctl(fd, SIOCGIFADDR, &ifr);
-    sprintf(localDevice->stRemoteDeviceInfo.IPv4,"%s",inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));
+        /* get Interface IPv4 */
+        ifr.ifr_addr.sa_family = AF_INET;
+        ioctl(fd, SIOCGIFADDR, &ifr);
+        sprintf(localDevice->stRemoteDeviceInfo.IPv4,"%s",inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));
 
-    //TODO: Update IPv6 address
-    close(fd);
+        //TODO: Update IPv6 address
+        close(fd);
 
 
-    platform_hal_GetModelName(localDevice->stRemoteDeviceInfo.ModelNumber);
-    strcpy(localDevice->stRemoteDeviceInfo.Capabilities, pidmDmlInfo->stConnectionInfo.Capabilities);
-    localDevice->stRemoteDeviceInfo.HelloInterval = pidmDmlInfo->stConnectionInfo.HelloInterval;
+        platform_hal_GetModelName(localDevice->stRemoteDeviceInfo.ModelNumber);
+        strcpy(localDevice->stRemoteDeviceInfo.Capabilities, pidmDmlInfo->stConnectionInfo.Capabilities);
+        localDevice->stRemoteDeviceInfo.HelloInterval = pidmDmlInfo->stConnectionInfo.HelloInterval;
 
-    CcspTraceInfo(("[%s: %d] MAC :%s, IP: %s, Model: %s, Capabilities: %s HelloInterval %d msec\n", __FUNCTION__, __LINE__,localDevice->stRemoteDeviceInfo.MAC,
+        CcspTraceInfo(("[%s: %d] MAC :%s, IP: %s, Model: %s, Capabilities: %s HelloInterval %d msec\n", __FUNCTION__, __LINE__,localDevice->stRemoteDeviceInfo.MAC,
                     localDevice->stRemoteDeviceInfo.IPv4, localDevice->stRemoteDeviceInfo.ModelNumber,localDevice->stRemoteDeviceInfo.Capabilities, localDevice->stRemoteDeviceInfo.HelloInterval));
+    } 
+    else
+    {
+        CcspTraceInfo(("LocalDevice is NULL in %s:%d\n", __FUNCTION__, __LINE__));
+    }
 
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return ANSC_STATUS_SUCCESS;
