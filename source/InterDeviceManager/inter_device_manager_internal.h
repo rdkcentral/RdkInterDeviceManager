@@ -71,6 +71,88 @@ _COMPONENT_COMMON_INTER_DEVICE_MANAGER
 }
 COMPONENT_COMMON_INTER_DEVICE_MANAGER, *PCOMPONENT_COMMON_INTER_DEVICE_MANAGER;
 
+typedef enum _IDM_REMOTE_DEVICE_STATUS
+{
+   DEVICE_NOT_DETECTED = 0,
+   DEVICE_DETECTED,
+   DEVICE_AUTHENTICATED,
+   DEVICE_CONNECTED
+}
+
+IDM_REMOTE_DEVICE_STATUS;
+
+typedef  struct _IDM_REMOTE_DEVICE_INFO
+{
+    IDM_REMOTE_DEVICE_STATUS   Status;
+    char                       MAC[18];
+    unsigned int               HelloInterval;
+    char                       IPv4[16];
+    char                       IPv6[128];
+    char                       Capabilities[1024];
+    char                       ModelNumber[256];
+    unsigned int               Index;
+}
+IDM_REMOTE_DEVICE_INFO,  *PIDM_REMOTE_DEVICE_INFO;
+
+typedef  struct _IDM_REMOTE_DEVICE_LINK_INFO
+{
+    IDM_REMOTE_DEVICE_INFO stRemoteDeviceInfo;
+    struct _IDM_REMOTE_DEVICE_LINK_INFO* next;
+}IDM_REMOTE_DEVICE_LINK_INFO;
+
+typedef  struct _IDM_REMOTE_DEVICE_CAP_INFO
+{
+    char AddDeviceCapabilities[1024];
+    char RemoveDeviceCapabilities[1024];
+    unsigned char ResetDeviceCapabilities;
+}
+IDM_REMOTE_DEVICE_CAP_INFO,  *PIDM_REMOTE_DEVICE_CAP_INFO;
+
+typedef  struct _IDM_REMOTE_INFO
+{
+    IDM_REMOTE_DEVICE_CAP_INFO      stRemoteDeviceCapInfo;
+    unsigned int                    ulDeviceNumberOfEntries;
+    IDM_REMOTE_DEVICE_LINK_INFO     *pstDeviceLink;
+}
+IDM_REMOTE_INFO,  *PIDM_REMOTE_INFO;
+
+typedef  struct _IDM_CONNECTION_INFO
+{
+    unsigned int HelloInterval;
+    char HelloIPv4SubnetList[256];
+    char HelloIPv6SubnetList[1024];
+    unsigned int DetectionWindow;
+}
+IDM_CONNECTION_INFO,  *PIDM_CONNECTION_INFO;
+
+typedef  struct _IDM_DML_INFO
+{
+    IDM_CONNECTION_INFO             stConnectionInfo;
+    IDM_REMOTE_INFO                 stRemoteInfo;
+}
+IDM_DML_INFO,  *PIDM_DML_INFO;
+
+typedef struct _IDM_DML_LINK_LIST
+{
+
+    IDM_REMOTE_DEVICE_LINK_INFO *pListHead;
+    IDM_REMOTE_DEVICE_LINK_INFO *pListTail;
+
+}IDM_DML_LINK_LIST;
+
+typedef struct _IDM_RBUS_SUBS_STATUS
+{
+    bool idmRmStatusSubscribed;
+    bool idmRmMacSubscribed;
+    bool idmRmHelloIntervalSubscribed;
+    bool idmRmIPv4Subscribed;
+    bool idmRmIPv6Subscribed;
+    bool idmRmCapSubscribed;
+    bool idmRmModelNumSubscribed;
+    bool idmRmNewDeviceSubscribed;
+
+}IDM_RBUS_SUBS_STATUS;
+
 #define ComponentCommonDmInit(component_com_interdevicemanager)                                          \
         {                                                                                             \
             AnscZeroMemory(component_com_interdevicemanager, sizeof(COMPONENT_COMMON_INTER_DEVICE_MANAGER)); \

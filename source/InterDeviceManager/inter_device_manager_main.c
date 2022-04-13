@@ -47,6 +47,8 @@ char                                        g_Subsystem[32]         = {0};
 extern char*                                pComponentName;
 extern ANSC_HANDLE                          bus_handle;
 
+extern ANSC_STATUS Idm_Init();
+
 #if defined(_ANSC_LINUX)
 static void daemonize(void)
 {
@@ -315,6 +317,11 @@ int main(int argc, char* argv[])
         exit(1);
     }
     system("touch /tmp/interdevicemanager_initialized");
+
+    if(ANSC_STATUS_FAILURE == Idm_Init())
+    {
+        fprintf(stderr, "IDM Initiliasation Failed: %s\n", Cdm_StrError(err));
+    }
 
     if ( bRunAsDaemon )
     {
