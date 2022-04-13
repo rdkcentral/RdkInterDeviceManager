@@ -34,6 +34,9 @@
 
 #include "Idm_rbus.h"
 
+extern ANSC_HANDLE  bus_handle;
+extern char         g_Subsystem[32];
+
 ANSC_STATUS addDevice(IDM_REMOTE_DEVICE_LINK_INFO *newNode, IDM_DML_LINK_LIST *sidmDmlListInfo)
 {
     if(NULL == newNode || NULL == sidmDmlListInfo)
@@ -156,3 +159,43 @@ ANSC_STATUS updteSubscriptionStatus(char *event, IDM_RBUS_SUBS_STATUS *sidmRmSub
 }
 
 
+int IDMMgr_RdkBus_GetParamValuesFromDB( char *pParamName, char *pReturnVal, int returnValLength )
+{
+    int     retPsmGet     = CCSP_SUCCESS;
+    CHAR   *param_value   = NULL, tmpOutput[256] = {0};
+    /* Input Validation */
+    if( ( NULL == pParamName) || ( NULL == pReturnVal ) || ( 0 >= returnValLength ) )
+    {
+        CcspTraceError(("%s Invalid Input Parameters\n",__FUNCTION__));
+        return CCSP_FAILURE;
+    }
+    retPsmGet = PSM_Get_Record_Value2(bus_handle, g_Subsystem, pParamName, NULL, &param_value);
+    if (retPsmGet != CCSP_SUCCESS)
+    {
+        CcspTraceError(("%s Error %d reading %s\n", __FUNCTION__, retPsmGet, pParamName));
+    }
+    else
+    {
+        /* Copy DB Value */
+        snprintf(pReturnVal, returnValLength, "%s", param_value);
+        ((CCSP_MESSAGE_BUS_INFO *)bus_handle)->freefunc(param_value);
+    }
+   return retPsmGet;
+}
+
+int IDMMgr_RdkBus_SetParamValuesToDB( char *pParamName, char *pParamVal )
+{
+    int     retPsmSet  = CCSP_SUCCESS;
+    /* Input Validation */
+    if( ( NULL == pParamName) || ( NULL == pParamVal ) )
+    {
+        CcspTraceError(("%s Invalid Input Parameters\n",__FUNCTION__));
+        return CCSP_FAILURE;
+    }
+    retPsmSet = PSM_Set_Record_Value2(bus_handle, g_Subsystem, pParamName, ccsp_string, pParamVal);
+    if (retPsmSet != CCSP_SUCCESS)
+    {
+        CcspTraceError(("%s Error %d writing %s\n", __FUNCTION__, retPsmSet, pParamName));
+    }
+    return retPsmSet;
+}

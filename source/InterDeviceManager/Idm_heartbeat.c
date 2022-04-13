@@ -122,6 +122,25 @@ void IDMMgr_print_status()
     }
 }
 
+ANSC_STATUS IDMMgr_GetBroadcastInterfaceName(char *name)
+{
+    int retPsmGet = CCSP_SUCCESS;
+    char param_value[256];
+    char param_name[512];
+
+    _ansc_memset(param_name, 0, sizeof(param_name));
+    _ansc_memset(param_value, 0, sizeof(param_value));
+    _ansc_sprintf(param_name, PSM_BROADCAST_INTERFACE_NAME);
+
+    retPsmGet = IDMMgr_RdkBus_GetParamValuesFromDB(param_name,param_value,sizeof(param_value));
+
+    if (retPsmGet == CCSP_SUCCESS)
+    {
+        AnscCopyString(name, param_value);
+    }
+    return ANSC_STATUS_SUCCESS;
+}
+
 int IDMMgr_create_v4_client_socket()
 {
     int     socket_client = -1;
@@ -211,6 +230,7 @@ static void* IDMMgr_Heart_Beat_thread(void *arg )
     time_t  last_HB_sent_time;
     struct  ifreq ifr;
     unsigned char serverInterfaceMac[20];
+    char broadcastIfaceName[20] = {0};
     char hello[64] = {0};
 
     pthread_detach(pthread_self());
@@ -218,8 +238,10 @@ static void* IDMMgr_Heart_Beat_thread(void *arg )
     socket_server = IDMMgr_create_v4_server_socket();
     socket_client = IDMMgr_create_v4_client_socket();
 
+    IDMMgr_GetBroadcastInterfaceName(broadcastIfaceName);
+
     memset(&ifr, 0x00, sizeof(ifr));
-    strcpy(ifr.ifr_name, "brlan0");
+    strcpy(ifr.ifr_name, broadcastIfaceName);
 
     /* Wait for interface to come up */
     ioctl(socket_server, SIOCGIFFLAGS, &ifr);

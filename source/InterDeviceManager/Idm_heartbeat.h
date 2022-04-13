@@ -48,4 +48,6 @@ int IDMMgr_create_v4_client_socket();
 int IDMMgr_create_v4_server_socket();
 
 ANSC_STATUS IDMMgr_Start_HeartBeat_Thread();
+
+ANSC_STATUS IDMMgr_GetBroadcastInterfaceName(char *name);
 #endif
