@@ -49,6 +49,7 @@
 #include "ansc_platform.h"
 #include "inter_device_manager_internal.h"
 #include "Idm_utils.h"
+#include "ccsp_base_api.h"
 
 ANSC_STATUS Idm_Rbus_Init();
 

@@ -32,13 +32,15 @@
  * limitations under the License.
  */
 
-#ifndef _IDM_CB_H_
-#define _IDM_CB_H_
+#ifndef _IDM_TCP_H_
+#define _IDM_TCP_H_
 
 #include "Idm_rbus.h"
+#include "Idm_msg_process.h"
 
-ANSC_STATUS IDM_Start_Device_Discovery();
-int discovery_cb(device_info_t* Device, uint discovery_status, uint authentication_status );
-int connection_cb(device_info_t* Device, connection_info_t* conn_info, uint encryption_status);
-int rcv_message_cb( connection_info_t* conn_info, void *payload);
+int open_remote_connection(connection_config_t* connectionConf, int (*connection_cb)(device_info_t* Device, connection_info_t* conn_info, uint encryption_status), int (*rcv_message_cb)( connection_info_t* conn_info, void *payload)) ;
+
+int send_remote_message(connection_info_t* conn_info, void *payload);
+
+int close_remote_connection(connection_info_t* conn_info);
 #endif

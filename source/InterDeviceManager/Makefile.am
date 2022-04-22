@@ -39,6 +39,6 @@ interdevicemanager_DEPENDENCIES= \
     ${top_builddir}/source/TR-181/middle_layer_src/libinterdevicemanager_middle_layer_src.la
 
 interdevicemanager_CFLAGS = $(SYSTEMD_CFLAGS) $(NONROOT_CFLAGS)
-interdevicemanager_SOURCES = inter_device_manager_action.c inter_device_manager_internal.h inter_device_manager_main.c inter_device_manager_messagebus_interface.c Idm_mgr.c Idm_utils.c Idm_rbus.c idm_ipc_client.c idm_ipc_server.c Idm_data.c Idm_call_back_apis.c
+interdevicemanager_SOURCES = inter_device_manager_action.c inter_device_manager_internal.h inter_device_manager_main.c inter_device_manager_messagebus_interface.c Idm_mgr.c Idm_utils.c Idm_rbus.c idm_ipc_client.c idm_ipc_server.c Idm_data.c Idm_call_back_apis.c Idm_TCP_apis.c Idm_msg_process.c
 interdevicemanager_LDFLAGS = -lccsp_common -ldl $(SYSTEMD_LDFLAGS) -lrdkloggers -lsyscfg -lrbus -lhal_platform
 interdevicemanager_LDADD =  $(interdevicemanager_DEPENDENCIES)

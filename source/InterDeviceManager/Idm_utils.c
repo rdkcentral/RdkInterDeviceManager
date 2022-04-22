@@ -81,7 +81,6 @@ ANSC_STATUS updateDeviceStatus(PIDM_DML_INFO pidmDmlInfo, uint32_t index, uint32
 
     while(head != NULL)
     {
-        CcspTraceInfo(("%s %d - Head is not NULL. Index is %d\n", __FUNCTION__, __LINE__,head->stRemoteDeviceInfo.Index ));
         if(head->stRemoteDeviceInfo.Index == index)
         {
             head->stRemoteDeviceInfo.Status = newStatus;
@@ -122,11 +121,9 @@ IDM_REMOTE_DEVICE_LINK_INFO* getRmDeviceNode(PIDM_DML_INFO pidmDmlInfo, uint32_t
 
      while(head != NULL)
     {
-        CcspTraceInfo(("%s %d - Head is not NULL. Index is %d\n", __FUNCTION__, __LINE__,head->stRemoteDeviceInfo.Index ));
         if(head->stRemoteDeviceInfo.Index == index)
         {
             
-            CcspTraceInfo(("%s %d - Device found for index %d\n", __FUNCTION__, __LINE__, index));
             return head;
         }
         head = head->next;

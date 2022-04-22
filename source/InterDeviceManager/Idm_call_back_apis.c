@@ -33,6 +33,8 @@
  */
 
 #include "Idm_call_back_apis.h"
+#include "Idm_TCP_apis.h"
+#include "Idm_msg_process.h"
 
 #define DM_REMOTE_DEVICE_TABLE "Device.X_RDK_Remote.Device"
 #define IDM_DEVICE_DISCOVERY_PORT 4444 //TODO: port no TBD
@@ -40,25 +42,71 @@
 
 extern rbusHandle_t        rbusHandle;
 
-int rcv_message_cb( connection_info_t* conn_info, char *payload)
+//====================================================================================//
+/*dummy function */
+//TODO: delete after integrating Upnp
+int start_discovery(discovery_config_t* discoveryConf, int (*discovery_cb)(device_info_t* Device, uint discovery_status, uint authentication_status))
 {
-    //TODO:handle rbus calls
-    if(!strncmp("Capabilities Request",payload, strlen("Capabilities Request")))
-    {
-        char SendBuf[256] ={0};
+    CcspTraceInfo(("%s %d - \n", __FUNCTION__, __LINE__));
+    return 0;
+}
+//====================================================================================//
+
+int rcv_message_cb( connection_info_t* conn_info, void *payload)
+{
+    CcspTraceInfo(("%s %d - \n", __FUNCTION__, __LINE__));
         PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
-        if( pidmDmlInfo == NULL )
+            if( pidmDmlInfo == NULL )
         {
             return  -1;
         }
-        IDM_REMOTE_DEVICE_LINK_INFO *localDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
 
-        snprintf(SendBuf, sizeof(SendBuf),"Cap:%s; Model: %s; HI :%d",localDevice->stRemoteDeviceInfo.Capabilities, localDevice->stRemoteDeviceInfo.ModelNumber, localDevice->stRemoteDeviceInfo.HelloInterval);
-        send_remote_message(conn_info, SendBuf);
+    payload_t *recvData = (payload_t*)payload;
+    if(recvData->msgType == REQ)
+    {
+        IDM_Incoming_Reqest_handler(recvData);
+    }else if(recvData->msgType == RES)
+    {
+        IDM_Incoming_Response_handler(recvData);
     }
-    //TODO:handle rbus calls
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return 0;
 }
+
+//====================================================================================//
+//TODO: CleanUp
+void dummycb(char *param_name, char *param_value, ANSC_STATUS status)
+{
+
+        if(status == ANSC_STATUS_SUCCESS)
+        {
+            CcspTraceInfo(("%s %d -IDM set/get to remote device success\n", __FUNCTION__, __LINE__));
+            CcspTraceInfo(("%s %d - %s => %s \n", __FUNCTION__, __LINE__,param_name , param_value));
+        }else
+            CcspTraceInfo(("%s %d -IDM set/get to remote failed \n", __FUNCTION__, __LINE__,param_name));
+
+        //find device entry
+        PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+            if( pidmDmlInfo == NULL )
+        {
+            return  -1;
+        }
+
+        IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
+        while(remoteDevice!=NULL)
+        {
+            if(strncmp(remoteDevice->stRemoteDeviceInfo.MAC, "A0:BD:CD:FF:77:D2" ,MAC_ADDR_SIZE) == 0)
+            {
+                CcspTraceInfo(("%s %d : Entry found %s\n",__FUNCTION__, __LINE__,remoteDevice->stRemoteDeviceInfo.MAC));
+                remoteDevice->stRemoteDeviceInfo.Status = DEVICE_CONNECTED;
+                break;
+            }
+            remoteDevice=remoteDevice->next;
+        }
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+
+}
+//====================================================================================//
 int connection_cb(device_info_t* Device, connection_info_t* conn_info, uint encryption_status)
 {
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
@@ -67,21 +115,45 @@ int connection_cb(device_info_t* Device, connection_info_t* conn_info, uint encr
         return  -1;
     }
 
-    IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
+    //TODO: Send request all parameters of remote device
+    //Send request to get Capabilities
+    idm_send_msg_Params_t param;
+    strcpy(param.Mac_dest, Device->mac_addr);
+    param.timeout = 5;
+    strcpy(param.param_name,"Device.X_RDK_Remote.Device.1.Capabilities");
+    param.operation = GET;
+    param.resCb = &dummycb;
 
+
+    IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
     while(remoteDevice!=NULL)
     {
         if(strcmp(remoteDevice->stRemoteDeviceInfo.MAC, Device->mac_addr) == 0)
         {
-            CcspTraceInfo(("%s %d -Entry found %s  \n", __FUNCTION__, __LINE__,remoteDevice->stRemoteDeviceInfo.MAC));
-
             if(encryption_status)
             {
-                remoteDevice->stRemoteDeviceInfo.Status = DEVICE_CONNECTED;
+                remoteDevice->stRemoteDeviceInfo.conn_info.conn = conn_info->conn;
+                IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+                while(remoteDevice->stRemoteDeviceInfo.Status != DEVICE_CONNECTED)
+                {
+                    CcspTraceInfo(("%s %d - sending Capabilities Request socket : %d\n", __FUNCTION__, __LINE__,remoteDevice->stRemoteDeviceInfo.conn_info.conn));
+                    IDM_sendMsg_to_Remote_device(&param);
+
+                    sleep(5);
+                }
+                //TODO: Cleanup /*test code for DML set */
+                //====================================================================================//
+                strcpy(param.param_name,"Device.X_RDK_WanManager.CPEInterface.2.Name");
+
+                param.operation = SET;
+                param.type = ccsp_string;
+                srand(time(0));
+                snprintf(param.param_value, sizeof(param.param_value),"update_wan_%d",((rand()%(14000 - 13000 + 1)) + 13000));
+                CcspTraceInfo(("%s %d - Setting Device.X_RDK_WanManager.CPEInterface.2.Name to %s\n", __FUNCTION__, __LINE__,param.param_value));
+                IDM_sendMsg_to_Remote_device(&param);
+                //====================================================================================//
             }
-            remoteDevice->stRemoteDeviceInfo.conn_info.conn = conn_info->conn;
-            //TODO: Send rbus get of Device.X_RDK_Remote.Device.1. (Local device entry of remote device)
-            send_remote_message(&remoteDevice->stRemoteDeviceInfo.conn_info, "Capabilities Request");
+
             break;
         }
         remoteDevice=remoteDevice->next;
@@ -111,12 +183,18 @@ int discovery_cb(device_info_t* Device, uint discovery_status, uint authenticati
 
             if(!discovery_status)
             {
+                CcspTraceError(("%s %d - device lost :MAC %s\n", __FUNCTION__, __LINE__,remoteDevice->stRemoteDeviceInfo.MAC));
                 remoteDevice->stRemoteDeviceInfo.Status = DEVICE_NOT_DETECTED;
-                close_remote_connection(remoteDevice->stRemoteDeviceInfo.conn_info.conn);
+                if(remoteDevice->stRemoteDeviceInfo.conn_info.conn != 0)
+                {
+                    close_remote_connection(remoteDevice->stRemoteDeviceInfo.conn_info.conn);
+                }
+                remoteDevice->stRemoteDeviceInfo.conn_info.conn = 0;
             }
 
             strncpy(remoteDevice->stRemoteDeviceInfo.IPv4, Device->ipv4_addr, IPv4_ADDR_SIZE);
             strncpy(remoteDevice->stRemoteDeviceInfo.IPv6, Device->ipv6_addr, IPv6_ADDR_SIZE);
+            free(Device);
             break;
         }
         remoteDevice=remoteDevice->next;
@@ -124,7 +202,9 @@ int discovery_cb(device_info_t* Device, uint discovery_status, uint authenticati
 
     if(!entryFount)
     {
-        CcspTraceInfo((" ADD new entry\n"));
+        CcspTraceInfo(("%s %d - New device detected MAC %s \n", __FUNCTION__, __LINE__, Device->mac_addr));
+
+        //Create new entry in remote deice list
         IDM_REMOTE_DEVICE_LINK_INFO *newNode = NULL;
         newNode = (IDM_REMOTE_DEVICE_LINK_INFO*)AnscAllocateMemory(sizeof(IDM_REMOTE_DEVICE_LINK_INFO));
 
@@ -143,6 +223,7 @@ int discovery_cb(device_info_t* Device, uint discovery_status, uint authenticati
         strncpy(newNode->stRemoteDeviceInfo.MAC, Device->mac_addr, MAC_ADDR_SIZE);
         strncpy(newNode->stRemoteDeviceInfo.IPv4, Device->ipv4_addr, IPv4_ADDR_SIZE);
         strncpy(newNode->stRemoteDeviceInfo.IPv6, Device->ipv6_addr, IPv6_ADDR_SIZE);
+        newNode->stRemoteDeviceInfo.conn_info.conn = 0;
 
         if(addDevice(newNode) == ANSC_STATUS_SUCCESS)
         {
@@ -158,6 +239,7 @@ int discovery_cb(device_info_t* Device, uint discovery_status, uint authenticati
         strcpy(connectionConf.interface, pidmDmlInfo->stConnectionInfo.Interface);
         connectionConf.port = IDM_DEVICE_DISCOVERY_PORT;
         connectionConf.device = Device;
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         if(open_remote_connection(&connectionConf, connection_cb, rcv_message_cb) !=0)
         {
             CcspTraceError(("%s %d - open_remote_connection failed\n", __FUNCTION__, __LINE__));
@@ -169,9 +251,23 @@ int discovery_cb(device_info_t* Device, uint discovery_status, uint authenticati
     return 0;
 }
 
-ANSC_STATUS IDMMgr_Start_Device_Discovery()
+ANSC_STATUS IDM_Start_Device_Discovery()
 {
     discovery_config_t discoveryConf;
+    pthread_t                threadId;
+    int                      iErrorCode     = 0;
+
+    /* Start incoming req handler thread */
+    iErrorCode = pthread_create( &threadId, NULL, &IDM_Incoming_req_handler_thread, NULL);
+    if( 0 != iErrorCode )
+    {
+        CcspTraceInfo(("%s %d - Failed to start Incoming_req_handler_thread Thread EC:%d\n", __FUNCTION__, __LINE__, iErrorCode ));
+        return ANSC_STATUS_FAILURE;
+    }
+    else
+    {
+        CcspTraceInfo(("%s %d - IDM Incoming_req_handler_thread Started Successfully\n", __FUNCTION__, __LINE__ ));
+    }
 
     /* Update discovery_config deatils */
     discoveryConf.port = IDM_DEVICE_DISCOVERY_PORT;

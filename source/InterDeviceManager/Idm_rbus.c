@@ -379,7 +379,6 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         return RBUS_ERROR_BUS_ERROR;   
     }
-    CcspTraceInfo(("%s %d - name is %s\n", __FUNCTION__, __LINE__, name));
 
     if(strstr(name, ".Status"))
     {

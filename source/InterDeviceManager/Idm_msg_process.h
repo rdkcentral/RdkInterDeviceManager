@@ -1,0 +1,124 @@
+/*
+ * If not stated otherwise in this file or this component's LICENSE file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2021 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/*
+ * Copyright [2014] [Cisco Systems, Inc.]
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     LICENSE-2.0" target="_blank" rel="nofollow">http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef _IDM_MSG_PROCESS_H_
+#define _IDM_MSG_PROCESS_H_
+
+#include "Idm_rbus.h"
+#include "ccsp_base_api.h"
+
+typedef (*callback)( char *param_name, char *param_value, ANSC_STATUS status );
+
+typedef  struct _sendReqList
+{
+    uint reqId;
+    char Mac_dest[MAC_ADDR_SIZE];
+    callback resCb;
+    uint timeout;
+    struct _sendReqList *next;
+}sendReqList; 
+
+typedef enum _IDM_MSG_OPERATION
+{
+    SET = 1,
+    GET,
+
+}IDM_MSG_OPERATION;
+
+typedef enum _IDM_MSG_TYPE
+{
+    REQ = 1,
+    RES,
+
+}IDM_MSG_TYPE;
+
+typedef struct _idm_send_msg_Params
+{
+    IDM_MSG_OPERATION operation;
+    char Mac_dest[MAC_ADDR_SIZE];
+    char param_name[128];
+    char param_value[1024];
+    uint timeout;
+    enum dataType_e type;
+    callback resCb;
+}idm_send_msg_Params_t;
+
+typedef struct _payload
+{
+    IDM_MSG_OPERATION operation;
+    IDM_MSG_TYPE msgType;
+    char Mac_source[MAC_ADDR_SIZE];
+    uint reqID;
+    uint timeout;
+    ANSC_STATUS status;
+    char param_name[128];
+    enum dataType_e type;
+    char param_value[1024];
+}payload_t;
+
+typedef  struct _RecvReqList
+{
+    uint reqId;
+    char Mac_dest[MAC_ADDR_SIZE];
+    IDM_MSG_OPERATION operation;
+    char param_name[128];
+    char param_value[1024];
+    uint timeout;
+    struct _RecvReqList *next;
+    enum dataType_e type;
+}RecvReqList;
+
+void IDM_addToSendRequestList( sendReqList *newReq);
+
+sendReqList* IDM_getFromSendRequestList(uint reqID);
+
+ANSC_STATUS IDM_sendMsg_to_Remote_device(idm_send_msg_Params_t *param);
+
+int IDM_Incoming_Response_handler(payload_t * payload);
+
+void IDM_addToReceivedReqList( RecvReqList *newReq);
+
+RecvReqList* IDM_ReceivedReqList_pop();
+
+int IDM_Incoming_Reqest_handler(payload_t * payload);
+
+void IDM_Incoming_req_handler_thread();
+
+
+#endif
+
+
+
+
+

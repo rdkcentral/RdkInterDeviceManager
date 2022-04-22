@@ -28,7 +28,7 @@ ANSC_STATUS Idm_Init()
     
     CcspTraceInfo(("%s %d - IDM UpdateLocalDeviceData success\n", __FUNCTION__, __LINE__));
 
-    if(IDMMgr_Start_Device_Discovery() == ANSC_STATUS_FAILURE)
+    if(IDM_Start_Device_Discovery() == ANSC_STATUS_FAILURE)
     {
        CcspTraceInfo(("%s %d - IDM Device_Discovery initialisation Failed\n", __FUNCTION__, __LINE__));
     }
