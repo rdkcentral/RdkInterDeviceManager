@@ -86,7 +86,7 @@ typedef enum _IDM_REMOTE_DEVICE_STATUS
 IDM_REMOTE_DEVICE_STATUS;
 
 typedef struct {
-    char interface[20];
+    char interface[32];
     uint  port;
     uint  discovery_interval;
     uint  loss_detection_window;

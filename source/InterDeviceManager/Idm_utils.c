@@ -164,7 +164,7 @@ ANSC_STATUS updteSubscriptionStatus(char *event, IDM_RBUS_SUBS_STATUS *sidmRmSub
 }
 
 
-int IDMMgr_RdkBus_GetParamValuesFromDB( char *pParamName, char *pReturnVal, int returnValLength )
+int IDM_RdkBus_GetParamValuesFromDB( char *pParamName, char *pReturnVal, int returnValLength )
 {
     int     retPsmGet     = CCSP_SUCCESS;
     CHAR   *param_value   = NULL, tmpOutput[256] = {0};
@@ -188,7 +188,7 @@ int IDMMgr_RdkBus_GetParamValuesFromDB( char *pParamName, char *pReturnVal, int 
    return retPsmGet;
 }
 
-int IDMMgr_RdkBus_SetParamValuesToDB( char *pParamName, char *pParamVal )
+int IDM_RdkBus_SetParamValuesToDB( char *pParamName, char *pParamVal )
 {
     int     retPsmSet  = CCSP_SUCCESS;
     /* Input Validation */
@@ -206,7 +206,7 @@ int IDMMgr_RdkBus_SetParamValuesToDB( char *pParamName, char *pParamVal )
 }
 
 
-ANSC_STATUS IDMMgr_UpdateLocalDeviceData()
+ANSC_STATUS IDM_UpdateLocalDeviceData()
 {
     struct  ifreq ifr;
     int      fd = -1;
@@ -216,29 +216,39 @@ ANSC_STATUS IDMMgr_UpdateLocalDeviceData()
     {
         return  ANSC_STATUS_FAILURE;
     }
+
+
+
+    if (( fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+    {
+        CcspTraceInfo(("echo reply socket creation V4 failed : %s", strerror(errno)));
+        return ANSC_STATUS_FAILURE;
+    }
+
+    memset(&ifr, 0x00, sizeof(ifr));
+    strcpy(ifr.ifr_name, pidmDmlInfo->stConnectionInfo.Interface);
+
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+
+    /* Wait for interface to come up */
+    ioctl(fd, SIOCGIFFLAGS, &ifr);
+    while(!((ifr.ifr_flags & ( IFF_UP | IFF_BROADCAST )) == ( IFF_UP | IFF_BROADCAST )))
+    {
+        ioctl(fd, SIOCGIFFLAGS, &ifr);
+        CcspTraceInfo(("[%s: %d] Wait for interface to come up\n", __FUNCTION__, __LINE__));
+        sleep(2);
+    }
+
+    pidmDmlInfo = IdmMgr_GetConfigData_locked();
+    if( pidmDmlInfo == NULL )
+    {
+        return  ANSC_STATUS_FAILURE;
+    }
     /*Local device info will be stored in first entry */
     IDM_REMOTE_DEVICE_LINK_INFO *localDevice = NULL;
     localDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
     if (localDevice)
     {
-        if (( fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
-        {
-            CcspTraceInfo(("echo reply socket creation V4 failed : %s", strerror(errno)));
-            return ANSC_STATUS_FAILURE;
-        }
-
-        memset(&ifr, 0x00, sizeof(ifr));
-        strcpy(ifr.ifr_name, pidmDmlInfo->stConnectionInfo.Interface);
-
-        /* Wait for interface to come up */
-        ioctl(fd, SIOCGIFFLAGS, &ifr);
-        while(!((ifr.ifr_flags & ( IFF_UP | IFF_BROADCAST )) == ( IFF_UP | IFF_BROADCAST )))
-        {
-            ioctl(fd, SIOCGIFFLAGS, &ifr);
-            CcspTraceInfo(("[%s: %d] Wait for interface to come up\n", __FUNCTION__, __LINE__));
-            sleep(2);
-        }
-
         /* get Interface MAC */
         ioctl(fd, SIOCGIFHWADDR, &ifr);
         const unsigned char* mac=(unsigned char*)ifr.ifr_hwaddr.sa_data;

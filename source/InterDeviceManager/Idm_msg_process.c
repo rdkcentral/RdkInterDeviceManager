@@ -98,12 +98,13 @@ ANSC_STATUS IDM_sendMsg_to_Remote_device(idm_send_msg_Params_t *param)
 
     while(remoteDevice!=NULL)
     {
-        if(strcmp(remoteDevice->stRemoteDeviceInfo.MAC, param->Mac_dest) == 0)
+        if(strcasecmp(remoteDevice->stRemoteDeviceInfo.MAC, param->Mac_dest) == 0)
         {
             if(remoteDevice->stRemoteDeviceInfo.conn_info.conn !=0)
             {
                 /* Create request entry */
                 sendReqList *newReq = malloc(sizeof(sendReqList));
+                memset(newReq, 0, sizeof(sendReqList));
                 newReq->reqId = gReqIdCounter++;
                 strncpy(newReq->Mac_dest,param->Mac_dest, MAC_ADDR_SIZE);
                 newReq->resCb = param->resCb;
@@ -114,6 +115,7 @@ ANSC_STATUS IDM_sendMsg_to_Remote_device(idm_send_msg_Params_t *param)
 
                 /* Create payload */
                 payload_t payload;
+                memset(&payload, 0, sizeof(payload_t));
                 payload.reqID = newReq->reqId;
                 payload.operation = param->operation;
                 payload.msgType = REQ;
@@ -145,7 +147,10 @@ int IDM_Incoming_Response_handler(payload_t * payload)
     }
 
     //call the responce callback API
-    req->resCb(payload->param_name, payload->param_value, payload->status);
+    if(payload->operation == IDM_REQUEST)
+    {
+        req->resCb((IDM_REMOTE_DEVICE_INFO *)payload->param_value, payload->status,payload->Mac_source);
+    }
 
     //Free mem
     free(req);
@@ -181,19 +186,21 @@ RecvReqList* IDM_ReceivedReqList_pop()
     return temp;
 }
 
-int IDM_Incoming_Reqest_handler(payload_t * payload)
+int IDM_Incoming_Request_handler(payload_t * payload)
 {
     CcspTraceInfo(("%s %d - \n", __FUNCTION__, __LINE__));
 
     /*Create entry in incoming req list */
     RecvReqList *getReq = malloc(sizeof(RecvReqList));
+    memset(getReq, 0, sizeof(RecvReqList));
     getReq->reqId = payload->reqID;
     getReq->operation = payload->operation;
     getReq->timeout = payload->timeout;
     getReq->type = payload->type;
-    strcpy(getReq->Mac_dest, payload->Mac_source);
-    strcpy(getReq->param_name, payload->param_name);
-    strcpy(getReq->param_value, payload->param_value);
+    strncpy(getReq->Mac_dest, payload->Mac_source,sizeof(getReq->Mac_dest));
+    strncpy(getReq->param_name, payload->param_name,sizeof(getReq->param_name));
+    strncpy(getReq->param_value, payload->param_value,sizeof(getReq->param_value));
+    getReq->next = NULL;
 
     IDM_addToReceivedReqList(getReq);
     return 0;
@@ -201,12 +208,14 @@ int IDM_Incoming_Reqest_handler(payload_t * payload)
 
 void IDM_Incoming_req_handler_thread()
 {
+    PIDM_DML_INFO pidmDmlInfo = NULL;
     while(true)
     {
         RecvReqList *ReqEntry = IDM_ReceivedReqList_pop();
         if(ReqEntry!= NULL)
         {
-            payload_t payload;    
+            payload_t payload;
+            memset(&payload, 0, sizeof(payload_t));
 
             CcspTraceInfo(("%s %d -processing get request from %s paramName %s \n", __FUNCTION__, __LINE__,ReqEntry->Mac_dest, ReqEntry->param_name));
             /* Rbus get implementation */
@@ -285,10 +294,24 @@ void IDM_Incoming_req_handler_thread()
                     payload.status = ANSC_STATUS_FAILURE;
                 }
                 payload.status = ANSC_STATUS_SUCCESS;
-            }
+            }else if(ReqEntry->operation == IDM_REQUEST)
+            {
+                CcspTraceInfo(("%s %d -Processing IDM_REQUEST request from %s \n", __FUNCTION__, __LINE__,ReqEntry->Mac_dest));
+
+                pidmDmlInfo = IdmMgr_GetConfigData_locked();
+                if( pidmDmlInfo == NULL )
+                {
+                    payload.status =  ANSC_STATUS_FAILURE;
+                }
+                /*get local deivce struct */
+                memcpy(payload.param_value, &(pidmDmlInfo->stRemoteInfo.pstDeviceLink->stRemoteDeviceInfo),sizeof(IDM_REMOTE_DEVICE_INFO));
+                payload.status =  ANSC_STATUS_SUCCESS;
+                IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+                pidmDmlInfo = NULL;
+            } 
 
             //create payload
-            PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+            pidmDmlInfo = IdmMgr_GetConfigData_locked();
             if( pidmDmlInfo == NULL )
             {
                 return  ANSC_STATUS_FAILURE;
@@ -303,7 +326,7 @@ void IDM_Incoming_req_handler_thread()
             //Find the device using mac
             while(remoteDevice!=NULL)
             {
-                if(strcmp(remoteDevice->stRemoteDeviceInfo.MAC, ReqEntry->Mac_dest) == 0)
+                if(strcasecmp(remoteDevice->stRemoteDeviceInfo.MAC, ReqEntry->Mac_dest) == 0)
                 {
                     if(remoteDevice->stRemoteDeviceInfo.conn_info.conn !=0)
                         send_remote_message(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload);

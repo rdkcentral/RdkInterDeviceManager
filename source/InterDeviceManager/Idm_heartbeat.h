@@ -37,17 +37,17 @@
 
 #include "Idm_rbus.h"
 
-ANSC_STATUS IDMMgr_UpdateDeviceList(char *mac, char *ip);
+ANSC_STATUS IDM_UpdateDeviceList(char *mac, char *ip);
 
-ANSC_STATUS IDMMgr_UpdateDeviceStatus();
+ANSC_STATUS IDM_UpdateDeviceStatus();
 
-void IDMMgr_print_status();
+void IDM_print_status();
 
-int IDMMgr_create_v4_client_socket();
+int IDM_create_v4_client_socket();
 
-int IDMMgr_create_v4_server_socket();
+int IDM_create_v4_server_socket();
 
-ANSC_STATUS IDMMgr_Start_HeartBeat_Thread();
+ANSC_STATUS IDM_Start_HeartBeat_Thread();
 
-ANSC_STATUS IDMMgr_GetBroadcastInterfaceName(char *name);
+ANSC_STATUS IDM_GetBroadcastInterfaceName(char *name);
 #endif

@@ -54,7 +54,7 @@ static int IdmMgr_get_IDM_ParametersFromPSM()
     _ansc_memset(param_value, 0, sizeof(param_value));
     _ansc_sprintf(param_name, PSM_DEVICE_CAPABILITIES);
 
-    retPsmGet = IDMMgr_RdkBus_GetParamValuesFromDB(param_name,param_value,sizeof(param_value));
+    retPsmGet = IDM_RdkBus_GetParamValuesFromDB(param_name,param_value,sizeof(param_value));
 
     if (retPsmGet == CCSP_SUCCESS)
     {
@@ -65,7 +65,7 @@ static int IdmMgr_get_IDM_ParametersFromPSM()
     _ansc_memset(param_value, 0, sizeof(param_value));
     _ansc_sprintf(param_name, PSM_BROADCAST_INTERFACE_NAME);
 
-    retPsmGet = IDMMgr_RdkBus_GetParamValuesFromDB(param_name,param_value,sizeof(param_value));
+    retPsmGet = IDM_RdkBus_GetParamValuesFromDB(param_name,param_value,sizeof(param_value));
 
     if (retPsmGet == CCSP_SUCCESS)
     {

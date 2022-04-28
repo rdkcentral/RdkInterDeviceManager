@@ -38,7 +38,7 @@
 #include "Idm_rbus.h"
 #include "ccsp_base_api.h"
 
-typedef (*callback)( char *param_name, char *param_value, ANSC_STATUS status );
+typedef (*callback)(PIDM_REMOTE_DEVICE_INFO device, ANSC_STATUS status ,char *mac);
 
 typedef  struct _sendReqList
 {
@@ -53,6 +53,7 @@ typedef enum _IDM_MSG_OPERATION
 {
     SET = 1,
     GET,
+    IDM_REQUEST,
 
 }IDM_MSG_OPERATION;
 
@@ -68,7 +69,7 @@ typedef struct _idm_send_msg_Params
     IDM_MSG_OPERATION operation;
     char Mac_dest[MAC_ADDR_SIZE];
     char param_name[128];
-    char param_value[1024];
+    char param_value[2048];
     uint timeout;
     enum dataType_e type;
     callback resCb;
@@ -84,7 +85,7 @@ typedef struct _payload
     ANSC_STATUS status;
     char param_name[128];
     enum dataType_e type;
-    char param_value[1024];
+    char param_value[2048];
 }payload_t;
 
 typedef  struct _RecvReqList
@@ -93,7 +94,7 @@ typedef  struct _RecvReqList
     char Mac_dest[MAC_ADDR_SIZE];
     IDM_MSG_OPERATION operation;
     char param_name[128];
-    char param_value[1024];
+    char param_value[2048];
     uint timeout;
     struct _RecvReqList *next;
     enum dataType_e type;
@@ -111,7 +112,7 @@ void IDM_addToReceivedReqList( RecvReqList *newReq);
 
 RecvReqList* IDM_ReceivedReqList_pop();
 
-int IDM_Incoming_Reqest_handler(payload_t * payload);
+int IDM_Incoming_Request_handler(payload_t * payload);
 
 void IDM_Incoming_req_handler_thread();
 

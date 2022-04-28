@@ -55,10 +55,10 @@ IDM_REMOTE_DEVICE_LINK_INFO* getRmDeviceNode(const PIDM_DML_INFO pidmDmlInfo, ui
 
 ANSC_STATUS updteSubscriptionStatus(char *event, IDM_RBUS_SUBS_STATUS *sidmRmSubStatus);
 
-int IDMMgr_RdkBus_SetParamValuesToDB( char *pParamName, char *pParamVal );
+int IDM_RdkBus_SetParamValuesToDB( char *pParamName, char *pParamVal );
 
-int IDMMgr_RdkBus_GetParamValuesFromDB( char *pParamName, char *pReturnVal, int returnValLength );
+int IDM_RdkBus_GetParamValuesFromDB( char *pParamName, char *pReturnVal, int returnValLength );
 
-ANSC_STATUS IDMMgr_UpdateLocalDeviceData();
+ANSC_STATUS IDM_UpdateLocalDeviceData();
 
 #endif

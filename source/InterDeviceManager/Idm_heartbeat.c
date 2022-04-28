@@ -40,7 +40,7 @@
 
 extern rbusHandle_t        rbusHandle;
 
-ANSC_STATUS IDMMgr_UpdateDeviceList(char *mac, char *ip)
+ANSC_STATUS IDM_UpdateDeviceList(char *mac, char *ip)
 {
     int entryFount = 0;
     ANSC_STATUS returnStatus   =  ANSC_STATUS_SUCCESS;
@@ -101,7 +101,7 @@ ANSC_STATUS IDMMgr_UpdateDeviceList(char *mac, char *ip)
 }
 
 
-ANSC_STATUS IDMMgr_UpdateDeviceStatus()
+ANSC_STATUS IDM_UpdateDeviceStatus()
 {
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
@@ -124,7 +124,7 @@ ANSC_STATUS IDMMgr_UpdateDeviceStatus()
     return ANSC_STATUS_SUCCESS;
 }
 
-void IDMMgr_print_status()
+void IDM_print_status()
 {
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
@@ -141,7 +141,7 @@ void IDMMgr_print_status()
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
 }
 
-ANSC_STATUS IDMMgr_GetBroadcastInterfaceName(char *name)
+ANSC_STATUS IDM_GetBroadcastInterfaceName(char *name)
 {
     int retPsmGet = CCSP_SUCCESS;
     char param_value[256];
@@ -151,7 +151,7 @@ ANSC_STATUS IDMMgr_GetBroadcastInterfaceName(char *name)
     _ansc_memset(param_value, 0, sizeof(param_value));
     _ansc_sprintf(param_name, PSM_BROADCAST_INTERFACE_NAME);
 
-    retPsmGet = IDMMgr_RdkBus_GetParamValuesFromDB(param_name,param_value,sizeof(param_value));
+    retPsmGet = IDM_RdkBus_GetParamValuesFromDB(param_name,param_value,sizeof(param_value));
 
     if (retPsmGet == CCSP_SUCCESS)
     {
@@ -160,7 +160,7 @@ ANSC_STATUS IDMMgr_GetBroadcastInterfaceName(char *name)
     return ANSC_STATUS_SUCCESS;
 }
 
-int IDMMgr_create_v4_client_socket()
+int IDM_create_v4_client_socket()
 {
     int     socket_client = -1;
     int     optval = 1;
@@ -186,7 +186,7 @@ int IDMMgr_create_v4_client_socket()
     return socket_client;
 }
 
-int IDMMgr_create_v4_server_socket()
+int IDM_create_v4_server_socket()
 {
     int      socket_server = -1;
     int     optval;
@@ -235,7 +235,7 @@ int IDMMgr_create_v4_server_socket()
     return  socket_server;
 }
 
-static void* IDMMgr_Heart_Beat_thread(void *arg )
+static void* IDM_Heart_Beat_thread(void *arg )
 {
     int     socket_server = -1;
     int     socket_client = -1;
@@ -255,10 +255,10 @@ static void* IDMMgr_Heart_Beat_thread(void *arg )
 
     pthread_detach(pthread_self());
 
-    socket_server = IDMMgr_create_v4_server_socket();
-    socket_client = IDMMgr_create_v4_client_socket();
+    socket_server = IDM_create_v4_server_socket();
+    socket_client = IDM_create_v4_client_socket();
 
-    IDMMgr_GetBroadcastInterfaceName(broadcastIfaceName);
+    IDM_GetBroadcastInterfaceName(broadcastIfaceName);
 
     memset(&ifr, 0x00, sizeof(ifr));
     strcpy(ifr.ifr_name, broadcastIfaceName);
@@ -285,7 +285,7 @@ static void* IDMMgr_Heart_Beat_thread(void *arg )
     sprintf(serverInterfaceIP,"%s",inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));
 
     CcspTraceInfo(("\n[%s: %d] %s Mac : %s Ipv4 : %s \n", __FUNCTION__, __LINE__, ifr.ifr_name, serverInterfaceMac, serverInterfaceIP));
-    IDMMgr_UpdateLocalDeviceData(serverInterfaceIP, serverInterfaceMac);
+    IDM_UpdateLocalDeviceData(serverInterfaceIP, serverInterfaceMac);
 
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     int HelloInterval = (pidmDmlInfo->stConnectionInfo.HelloInterval /1000);
@@ -349,14 +349,14 @@ static void* IDMMgr_Heart_Beat_thread(void *arg )
                     if(strcmp(clientMac, serverInterfaceMac))
                     {
                         CcspTraceInfo((" server : msg => %s , client ip => %s, port => %d  \n", recvBuf, clientIP, (int) ntohs(srcAddr.sin_port)));
-                        IDMMgr_UpdateDeviceList(clientMac,clientIP);
+                        IDM_UpdateDeviceList(clientMac,clientIP);
                     }
                 }
             }
         }
 
         /*Update Device status */
-        IDMMgr_UpdateDeviceStatus();
+        IDM_UpdateDeviceStatus();
 
         /*Check time interval to send hello */
         time_t current_time = time(0);
@@ -367,7 +367,7 @@ static void* IDMMgr_Heart_Beat_thread(void *arg )
             sendto( socket_client, (const char *)hello, strlen(hello),
                     MSG_CONFIRM, (const struct sockaddr *) &Recv_addr,
                     sizeof(Recv_addr));
-            //IDMMgr_print_status();
+            //IDM_print_status();
         }
 
     }
@@ -375,13 +375,13 @@ static void* IDMMgr_Heart_Beat_thread(void *arg )
     pthread_exit(NULL);
 }
 
-ANSC_STATUS IDMMgr_Start_HeartBeat_Thread()
+ANSC_STATUS IDM_Start_HeartBeat_Thread()
 {
 
     pthread_t                HBB_thread;
     int                      iErrorCode     = 0;
 
-    iErrorCode = pthread_create( &HBB_thread, NULL, &IDMMgr_Heart_Beat_thread, NULL );
+    iErrorCode = pthread_create( &HBB_thread, NULL, &IDM_Heart_Beat_thread, NULL );
     if( 0 != iErrorCode )
     {
         CcspTraceInfo(("%s %d - Failed to start Heart_Beat  Thread EC:%d\n", __FUNCTION__, __LINE__, iErrorCode ));

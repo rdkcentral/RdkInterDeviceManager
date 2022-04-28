@@ -34,7 +34,7 @@
 
 #include "Idm_TCP_apis.h"
 
-#define IDM_DEVICE_DISCOVERY_PORT 4444 //TODO: port no TBD
+#define IDM_DEVICE_TCP_PORT 4444 //TODO: port no TBD
 #define MAX_TCP_CLIENTS 30
 
 bool TCP_server_started = false;
@@ -84,7 +84,7 @@ void tcp_server_thread(void *arg)
 
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = INADDR_ANY;
-    servaddr.sin_port = htons(IDM_DEVICE_DISCOVERY_PORT);
+    servaddr.sin_port = htons(IDM_DEVICE_TCP_PORT);
 
     rc = bind(master_sock_fd, (struct sockaddr *)&servaddr, sizeof(servaddr));
 

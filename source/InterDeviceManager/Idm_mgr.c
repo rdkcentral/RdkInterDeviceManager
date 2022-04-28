@@ -21,7 +21,7 @@ ANSC_STATUS Idm_Init()
     CcspTraceInfo(("%s %d - IDM Rbus initialisation success\n", __FUNCTION__, __LINE__)); 
 
     //TODO: Wait for mesh network
-    if(IDMMgr_UpdateLocalDeviceData()== ANSC_STATUS_FAILURE)
+    if(IDM_UpdateLocalDeviceData()== ANSC_STATUS_FAILURE)
     {
        CcspTraceInfo(("%s %d - IDM UpdateLocalDeviceData initialisation Failed\n", __FUNCTION__, __LINE__));
     }
