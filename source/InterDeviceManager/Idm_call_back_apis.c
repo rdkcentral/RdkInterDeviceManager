@@ -83,7 +83,6 @@ int rcv_message_cb( connection_info_t* conn_info, void *payload)
     return 0;
 }
 
-//TODO: CleanUp
 void Capabilities_get_cb(IDM_REMOTE_DEVICE_INFO *device, ANSC_STATUS status ,char *mac)
 {
 
@@ -128,7 +127,7 @@ int connection_cb(device_info_t* Device, connection_info_t* conn_info, uint encr
     strncpy(param.Mac_dest, Device->mac_addr,MAC_ADDR_SIZE);
     param.timeout = DEFAULT_IDM_REQUEST_TIMEOUT;
     param.operation = IDM_REQUEST;
-    param.resCb = &Capabilities_get_cb;
+    param.resCb = NULL;
 
     while(1)
     {

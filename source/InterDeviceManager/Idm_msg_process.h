@@ -38,13 +38,12 @@
 #include "Idm_rbus.h"
 #include "ccsp_base_api.h"
 
-typedef (*callback)(PIDM_REMOTE_DEVICE_INFO device, ANSC_STATUS status ,char *mac);
 
 typedef  struct _sendReqList
 {
     uint reqId;
     char Mac_dest[MAC_ADDR_SIZE];
-    callback resCb;
+    rbusMethodAsyncHandle_t resCb;
     uint timeout;
     struct _sendReqList *next;
 }sendReqList; 
@@ -70,9 +69,11 @@ typedef struct _idm_send_msg_Params
     char Mac_dest[MAC_ADDR_SIZE];
     char param_name[128];
     char param_value[2048];
+    char pComponent_name[128];
+    char pBus_path[128];
     uint timeout;
     enum dataType_e type;
-    callback resCb;
+    rbusMethodAsyncHandle_t resCb;
 }idm_send_msg_Params_t;
 
 typedef struct _payload
@@ -86,6 +87,8 @@ typedef struct _payload
     char param_name[128];
     enum dataType_e type;
     char param_value[2048];
+    char pComponent_name[128];
+    char pBus_path[128];
 }payload_t;
 
 typedef  struct _RecvReqList
@@ -95,6 +98,8 @@ typedef  struct _RecvReqList
     IDM_MSG_OPERATION operation;
     char param_name[128];
     char param_value[2048];
+    char pComponent_name[128];
+    char pBus_path[128];
     uint timeout;
     struct _RecvReqList *next;
     enum dataType_e type;

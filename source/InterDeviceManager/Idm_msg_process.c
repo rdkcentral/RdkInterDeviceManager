@@ -37,6 +37,7 @@ sendReqList *headsendReqList =NULL;
 RecvReqList *headRecvReqList = NULL;
 uint gReqIdCounter = 0;
 extern ANSC_HANDLE  bus_handle;
+extern Capabilities_get_cb(IDM_REMOTE_DEVICE_INFO *device, ANSC_STATUS status ,char *mac);
 void IDM_addToSendRequestList( sendReqList *newReq)
 {
     if(!headsendReqList)
@@ -122,6 +123,8 @@ ANSC_STATUS IDM_sendMsg_to_Remote_device(idm_send_msg_Params_t *param)
                 strncpy(payload.Mac_source, localDevice->stRemoteDeviceInfo.MAC,MAC_ADDR_SIZE);
                 strncpy(payload.param_name,param->param_name,sizeof(payload.param_name));
                 strncpy(payload.param_value,param->param_value,sizeof(payload.param_value));
+                strncpy(payload.pComponent_name,param->pComponent_name,sizeof(payload.pComponent_name));
+                strncpy(payload.pBus_path,param->pBus_path,sizeof(payload.pBus_path));
                 payload.type = param->type;
 
                 /* send message */
@@ -149,10 +152,42 @@ int IDM_Incoming_Response_handler(payload_t * payload)
     //call the responce callback API
     if(payload->operation == IDM_REQUEST)
     {
-        req->resCb((IDM_REMOTE_DEVICE_INFO *)payload->param_value, payload->status,payload->Mac_source);
+        Capabilities_get_cb((IDM_REMOTE_DEVICE_INFO *)payload->param_value, payload->status,payload->Mac_source);
+    }else
+    {
+        rbusObject_t outParams;
+        rbusValue_t value;
+        rbusError_t err;
+
+        rbusObject_Init(&outParams, NULL);
+        rbusValue_Init(&value);
+        rbusValue_SetString(value, payload->param_value);
+        rbusObject_SetValue(outParams, "param_value", value);
+        rbusValue_Release(value);
+
+        rbusValue_Init(&value);
+        rbusValue_SetString(value, payload->Mac_source);
+        rbusObject_SetValue(outParams, "Mac_source", value);
+        rbusValue_Release(value);
+
+        rbusValue_Init(&value);
+        rbusValue_SetString(value, payload->param_name);
+        rbusObject_SetValue(outParams, "param_name", value);
+        rbusValue_Release(value);
+
+        CcspTraceInfo(("%s sending rbus callback responce\n", __FUNCTION__));
+
+        if(payload->status == ANSC_STATUS_SUCCESS)
+        {
+            err = rbusMethod_SendAsyncResponse(req->resCb, RBUS_ERROR_SUCCESS, outParams);
+            if(err != RBUS_ERROR_SUCCESS)
+            {
+                CcspTraceInfo(("%s rbusMethod_SendAsyncResponse failed err:%d\n", __FUNCTION__, err));
+            }
+        }
+        rbusObject_Release(outParams);
     }
 
-    //Free mem
     free(req);
     return 0;
 }
@@ -200,6 +235,8 @@ int IDM_Incoming_Request_handler(payload_t * payload)
     strncpy(getReq->Mac_dest, payload->Mac_source,sizeof(getReq->Mac_dest));
     strncpy(getReq->param_name, payload->param_name,sizeof(getReq->param_name));
     strncpy(getReq->param_value, payload->param_value,sizeof(getReq->param_value));
+    strncpy(getReq->pComponent_name, payload->pComponent_name,sizeof(getReq->pComponent_name));
+    strncpy(getReq->pBus_path, payload->pBus_path,sizeof(getReq->pBus_path));
     getReq->next = NULL;
 
     IDM_addToReceivedReqList(getReq);
@@ -217,7 +254,7 @@ void IDM_Incoming_req_handler_thread()
             payload_t payload;
             memset(&payload, 0, sizeof(payload_t));
 
-            CcspTraceInfo(("%s %d -processing get request from %s paramName %s \n", __FUNCTION__, __LINE__,ReqEntry->Mac_dest, ReqEntry->param_name));
+            CcspTraceInfo(("%s %d -processing request from %s \n \tparamName %s \n", __FUNCTION__, __LINE__,ReqEntry->Mac_dest, ReqEntry->param_name));
             /* Rbus get implementation */
             if(ReqEntry->operation == GET)
             {
@@ -230,8 +267,8 @@ void IDM_Incoming_req_handler_thread()
                 ParamName[0] = ReqEntry->param_name;
                 ret = CcspBaseIf_getParameterValues(
                         bus_handle,
-                        "eRT.com.cisco.spvtg.ccsp.interdevicemanager",//pComponent,TODO: Remove hard coded value get it from payload
-                        "/com/cisco/spvtg/ccsp/interdevicemanager",//pBus,TODO: Remove hard coded value get it from payload
+                        ReqEntry->pComponent_name,
+                        ReqEntry->pBus_path,
                         ParamName,
                         1,
                         &nval,
@@ -277,8 +314,8 @@ void IDM_Incoming_req_handler_thread()
                 param_val[0].type           = ReqEntry->type;
                 ret = CcspBaseIf_setParameterValues(
                         bus_handle,
-                        "eRT.com.cisco.spvtg.ccsp.wanmanager",//pComponent,TODO: Remove hard coded value get it from payload
-                        "/com/cisco/spvtg/ccsp/wanmanager",//pBus,TODO: Remove hard coded value get it from payload
+                        ReqEntry->pComponent_name,
+                        ReqEntry->pBus_path,
                         0,
                         0,
                         param_val,
@@ -308,6 +345,7 @@ void IDM_Incoming_req_handler_thread()
                 payload.status =  ANSC_STATUS_SUCCESS;
                 IdmMgrDml_GetConfigData_release(pidmDmlInfo);
                 pidmDmlInfo = NULL;
+
             } 
 
             //create payload

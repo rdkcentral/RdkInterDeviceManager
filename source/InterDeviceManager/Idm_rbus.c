@@ -33,6 +33,7 @@
  */
 
 #include "Idm_rbus.h"
+#include "Idm_msg_process.h"
 
 #define CONN_HC_ELEMENTS   4
 #define CONN_METHOD_ELEMENTS   3
@@ -597,7 +598,67 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
     }
     else if(strcmp(methodName, "Device.X_RDK_Remote.Invoke()") == 0)
     {
-        /* TODO: Actual implementation */
+        CcspTraceInfo(("%s %d - Device.X_RDK_Remote.Invoke() called  \n", __FUNCTION__, __LINE__));
+        uint32_t len = 0;
+        rbusValue_t value;
+
+        idm_send_msg_Params_t param;
+        memset(&param,0,sizeof(param));
+
+        rbusValue_Init(&value);    
+        value = rbusObject_GetValue(inParams, "DEST_MAC_ADDR");
+        strncpy(param.Mac_dest, rbusValue_GetString(value, NULL),MAC_ADDR_SIZE);
+        CcspTraceInfo(("%s %d - param.Mac_dest %s\n", __FUNCTION__, __LINE__,param.Mac_dest));
+        rbusValue_Release(value);
+
+        rbusValue_Init(&value);
+        value = rbusObject_GetValue(inParams, "paramName");
+        strncpy(param.param_name, rbusValue_GetString(value, NULL),sizeof(param.param_name));
+        CcspTraceInfo(("%s %d - param.param_name %s\n", __FUNCTION__, __LINE__,param.param_name));
+        rbusValue_Release(value);
+
+        rbusValue_Init(&value);
+        value = rbusObject_GetValue(inParams, "paramValue");
+        strncpy(param.param_value, rbusValue_GetString(value, NULL),sizeof(param.param_value));
+        CcspTraceInfo(("%s %d - param.param_value %s\n", __FUNCTION__, __LINE__,param.param_value));
+        rbusValue_Release(value);
+
+        rbusValue_Init(&value);
+        value = rbusObject_GetValue(inParams, "pComponent");
+        strncpy(param.pComponent_name, rbusValue_GetString(value, NULL),sizeof(param.pComponent_name));
+        CcspTraceInfo(("%s %d - param. %s\n", __FUNCTION__, __LINE__,param.pComponent_name));
+        rbusValue_Release(value);
+
+        rbusValue_Init(&value);
+        value = rbusObject_GetValue(inParams, "pBus");
+        strncpy(param.pBus_path, rbusValue_GetString(value, NULL),sizeof(param.pBus_path));
+        CcspTraceInfo(("%s %d - param. %s\n", __FUNCTION__, __LINE__,param.pBus_path));
+        rbusValue_Release(value);
+
+        rbusValue_Init(&value);
+        value = rbusObject_GetValue(inParams, "Timeout");
+        param.timeout = rbusValue_GetInt32(value);
+        CcspTraceInfo(("%s %d - param. %d\n", __FUNCTION__, __LINE__,param.timeout));
+        rbusValue_Release(value);
+
+        rbusValue_Init(&value);
+        value = rbusObject_GetValue(inParams, "DataType");
+        param.type = rbusValue_GetInt32(value);
+        CcspTraceInfo(("%s %d - param. %d\n", __FUNCTION__, __LINE__,param.type));
+        rbusValue_Release(value);
+
+        rbusValue_Init(&value);
+        value = rbusObject_GetValue(inParams, "Operation");
+        param.operation = rbusValue_GetInt32(value);
+        CcspTraceInfo(("%s %d - param. %d\n", __FUNCTION__, __LINE__,param.operation));
+        rbusValue_Release(value);
+
+        param.resCb = asyncHandle;
+ 
+        IDM_sendMsg_to_Remote_device(&param);
+        rbusObject_Release(inParams);
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+        return RBUS_ERROR_ASYNC_RESPONSE;
     }
     else
     {
