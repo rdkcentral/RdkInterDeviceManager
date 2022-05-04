@@ -287,7 +287,7 @@ int open_remote_connection(connection_config_t* connectionConf, int (*connection
     bzero(&servaddr, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = inet_addr(connectionConf->device->ipv4_addr);
-    servaddr.sin_port = htons(connectionConf->port);
+    servaddr.sin_port = htons(IDM_DEVICE_TCP_PORT);
 
     CcspTraceInfo(("waiting to connect to the IDM server..\n"));
     while (1)

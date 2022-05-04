@@ -100,9 +100,9 @@ typedef struct {
 } discovery_config_t;
 
 typedef struct {
-    char mac_addr[MAC_ADDR_SIZE];
     char ipv4_addr[IPv4_ADDR_SIZE];
     char ipv6_addr[IPv6_ADDR_SIZE];
+    char mac_addr[MAC_ADDR_SIZE];
 } device_info_t;
 
 typedef struct {

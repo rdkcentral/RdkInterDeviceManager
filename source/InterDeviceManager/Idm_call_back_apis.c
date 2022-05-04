@@ -57,16 +57,6 @@ extern token_t sysevent_token;
 
 void discovery_cb_thread(void *arg);
 
-//====================================================================================//
-/*dummy function */
-//TODO: delete after integrating Upnp
-int start_discovery(discovery_config_t* discoveryConf, int (*discovery_cb)(device_info_t* Device, uint discovery_status, uint authentication_status))
-{
-    CcspTraceInfo(("%s %d - \n", __FUNCTION__, __LINE__));
-    return 0;
-}
-//====================================================================================//
-
 int rcv_message_cb( connection_info_t* conn_info, void *payload)
 {
     CcspTraceInfo(("%s %d - \n", __FUNCTION__, __LINE__));
@@ -308,6 +298,7 @@ void discovery_cb_thread(void *arg)
         //Create new entry in remote deice list
         IDM_REMOTE_DEVICE_LINK_INFO *newNode = NULL;
         newNode = (IDM_REMOTE_DEVICE_LINK_INFO*)AnscAllocateMemory(sizeof(IDM_REMOTE_DEVICE_LINK_INFO));
+        memset(newNode, 0, sizeof(IDM_REMOTE_DEVICE_LINK_INFO));
 
         if( newNode == NULL )
         {
@@ -398,13 +389,7 @@ ANSC_STATUS IDM_Start_Device_Discovery()
     pthread_t                threadId, discovery_threadId;
     int                      iErrorCode     = 0;
 
-    //TODO:(Remove after mesh implementation) wait for IDM interface static configurations
-    while(access("/tmp/idmReady", F_OK) == -1)
-    {
-        CcspTraceInfo(("%s %d - wait for /tmp/idmReady file \n", __FUNCTION__, __LINE__));
-        sleep(10);
-    }
-
+    //TODO: Wait for mesh interface
 
     /* Start incoming req handler thread */
     iErrorCode = pthread_create( &threadId, NULL, &IDM_Incoming_req_handler_thread, NULL);
