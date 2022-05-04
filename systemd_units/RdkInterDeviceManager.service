@@ -19,7 +19,7 @@
 [Unit]
 Description=RDK InterDeviceManager service
 
-After=PsmSsp.service
+After=PsmSsp.service network-online.target rdkssainit.service
 
 
 [Service]
@@ -28,6 +28,7 @@ Environment="Subsys=eRT."
 Environment="LOG4C_RCPATH=/etc"
 EnvironmentFile=/etc/device.properties
 WorkingDirectory=/usr/rdk/interdevicemanager
+ExecStartPre=-/bin/sh -c 'val=`syscfg get Refactor`; if [ "$val" == "true" ]; then /bin/sh /etc/Xupnp/idm_certs.sh;else echo "Refactor disabled";fi'
 ExecStart=/usr/bin/interdevicemanager -subsys eRT.
 ExecStop=/bin/sh -c 'echo "`date`: Stopping/Restarting InterDevice Manager" >> ${PROCESS_RESTART_LOG}'
 Restart=on-failure
