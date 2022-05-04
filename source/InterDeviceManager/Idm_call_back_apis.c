@@ -65,11 +65,6 @@ int start_discovery(discovery_config_t* discoveryConf, int (*discovery_cb)(devic
 int rcv_message_cb( connection_info_t* conn_info, void *payload)
 {
     CcspTraceInfo(("%s %d - \n", __FUNCTION__, __LINE__));
-        PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
-            if( pidmDmlInfo == NULL )
-        {
-            return  -1;
-        }
 
     payload_t *recvData = (payload_t*)payload;
     if(recvData->msgType == REQ)
@@ -79,7 +74,6 @@ int rcv_message_cb( connection_info_t* conn_info, void *payload)
     {
         IDM_Incoming_Response_handler(recvData);
     }
-    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return 0;
 }
 

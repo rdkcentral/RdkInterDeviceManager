@@ -184,6 +184,13 @@ int IDM_Incoming_Response_handler(payload_t * payload)
             {
                 CcspTraceInfo(("%s rbusMethod_SendAsyncResponse failed err:%d\n", __FUNCTION__, err));
             }
+        }else
+        {
+            err = rbusMethod_SendAsyncResponse(req->resCb, RBUS_ERROR_BUS_ERROR, outParams);
+            if(err != RBUS_ERROR_SUCCESS)
+            {
+                CcspTraceInfo(("%s rbusMethod_SendAsyncResponse failed err:%d\n", __FUNCTION__, err));
+            }
         }
         rbusObject_Release(outParams);
     }
