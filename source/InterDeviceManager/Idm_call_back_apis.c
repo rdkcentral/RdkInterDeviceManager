@@ -243,7 +243,7 @@ void discovery_cb_thread(void *arg)
                 remoteDevice->stRemoteDeviceInfo.Status = DEVICE_NOT_DETECTED;
                 if(remoteDevice->stRemoteDeviceInfo.conn_info.conn != 0)
                 {
-                    close_remote_connection(remoteDevice->stRemoteDeviceInfo.conn_info.conn);
+                    close_remote_connection(&remoteDevice->stRemoteDeviceInfo.conn_info);
                 }
                 remoteDevice->stRemoteDeviceInfo.conn_info.conn = 0;
             }
