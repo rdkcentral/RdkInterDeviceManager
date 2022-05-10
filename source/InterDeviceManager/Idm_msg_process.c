@@ -33,10 +33,18 @@
  */
 
 #include "Idm_msg_process.h"
+
+#define DM_REMOTE_DEVICE_INVOKE "Device.X_RDK_Remote.Invoke()"
 sendReqList *headsendReqList =NULL;
 RecvReqList *headRecvReqList = NULL;
+
+sendSubscriptionList *headsendSubscriptionList =NULL;
+RecvSubscriptionList *headRecvSubscriptionList = NULL;
+
 uint gReqIdCounter = 0;
 extern ANSC_HANDLE  bus_handle;
+extern rbusHandle_t        rbusHandle;
+
 extern Capabilities_get_cb(IDM_REMOTE_DEVICE_INFO *device, ANSC_STATUS status ,char *mac);
 void IDM_addToSendRequestList( sendReqList *newReq)
 {
@@ -86,6 +94,41 @@ sendReqList* IDM_getFromSendRequestList(uint reqID)
     }
 }
 
+
+void IDM_addToSendSubscriptionuestList( sendSubscriptionList *newSubscription)
+{
+    if(!headsendSubscriptionList)
+    {
+        headsendSubscriptionList  = newSubscription;
+    }else
+    {
+
+        sendSubscriptionList *temp = headsendSubscriptionList;
+        while (temp->next != NULL)
+        {
+            temp = temp->next;
+        }
+        temp->next = newSubscription;
+    }
+}
+
+void IDM_addToReceivedSubscriptionList( RecvSubscriptionList *newSubscription)
+{
+    if(!headRecvSubscriptionList)
+    {
+        headRecvSubscriptionList  = newSubscription;
+    }else
+    {
+
+        RecvSubscriptionList *temp = headRecvSubscriptionList;
+        while (temp->next != NULL)
+        {
+            temp = temp->next;
+        }
+        temp->next = newSubscription;
+    }
+}
+
 ANSC_STATUS IDM_sendMsg_to_Remote_device(idm_send_msg_Params_t *param)
 {
 
@@ -101,23 +144,36 @@ ANSC_STATUS IDM_sendMsg_to_Remote_device(idm_send_msg_Params_t *param)
     {
         if(strcasecmp(remoteDevice->stRemoteDeviceInfo.MAC, param->Mac_dest) == 0)
         {
-            if(remoteDevice->stRemoteDeviceInfo.conn_info.conn !=0)
+            if((remoteDevice->stRemoteDeviceInfo.conn_info.conn !=0))
             {
-                /* Create request entry */
-                sendReqList *newReq = malloc(sizeof(sendReqList));
-                memset(newReq, 0, sizeof(sendReqList));
-                newReq->reqId = gReqIdCounter++;
-                strncpy(newReq->Mac_dest,param->Mac_dest, MAC_ADDR_SIZE);
-                newReq->resCb = param->resCb;
-                newReq->timeout = param->timeout;
-                newReq->next = NULL;
-
-                IDM_addToSendRequestList(newReq);
-
                 /* Create payload */
                 payload_t payload;
                 memset(&payload, 0, sizeof(payload_t));
-                payload.reqID = newReq->reqId;
+                if(param->operation == GET || param->operation == SET || param->operation == IDM_REQUEST)
+                {
+                    /* Create request entry */
+                    sendReqList *newReq = malloc(sizeof(sendReqList));
+                    memset(newReq, 0, sizeof(sendReqList));
+                    newReq->reqId = gReqIdCounter++;
+                    strncpy(newReq->Mac_dest,param->Mac_dest, MAC_ADDR_SIZE);
+                    newReq->resCb = param->resCb;
+                    newReq->timeout = param->timeout;
+                    newReq->next = NULL;
+
+                    IDM_addToSendRequestList(newReq);
+                    payload.reqID = newReq->reqId;
+                }else if(param->operation == IDM_SUBS)
+                {
+                    /* Create request entry */
+                    sendSubscriptionList *newReq = malloc(sizeof(sendSubscriptionList));
+                    memset(newReq, 0, sizeof(sendSubscriptionList));
+                    newReq->reqId = gReqIdCounter++;
+                    newReq->resCb = param->resCb;
+                    newReq->next = NULL;
+                    IDM_addToSendSubscriptionuestList(newReq);
+                    payload.reqID = newReq->reqId;
+                }
+
                 payload.operation = param->operation;
                 payload.msgType = REQ;
                 strncpy(payload.Mac_source, localDevice->stRemoteDeviceInfo.MAC,MAC_ADDR_SIZE);
@@ -129,6 +185,10 @@ ANSC_STATUS IDM_sendMsg_to_Remote_device(idm_send_msg_Params_t *param)
 
                 /* send message */
                 send_remote_message(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload);
+            }else
+            {
+                IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+                return  ANSC_STATUS_FAILURE;
             }
             break;
         }
@@ -141,14 +201,34 @@ ANSC_STATUS IDM_sendMsg_to_Remote_device(idm_send_msg_Params_t *param)
 
 int IDM_Incoming_Response_handler(payload_t * payload)
 {
+    rbusMethodAsyncHandle_t async_callBack_handler;
     /* find req entry in LL */
-    sendReqList *req = IDM_getFromSendRequestList(payload->reqID);
-    if(req == NULL)
+    if(payload->operation == IDM_SUBS)
     {
-        //Entry not found. may be timed out.
-        return -1;
-    }
+        sendSubscriptionList *subsReq = headsendSubscriptionList;
+        while(subsReq != NULL)
+        {
+            if (payload->reqID == subsReq->reqId)
+            {
+                //TODO: Subscription call back is handled by DM_REMOTE_DEVICE_INVOKE publish event. Call back not required
+                async_callBack_handler = subsReq->resCb;
+                break;
+            }
+            subsReq = subsReq->next;
+        }
 
+    }else
+    {
+        sendReqList *req;
+        req = IDM_getFromSendRequestList(payload->reqID);
+        if(req == NULL)
+        {
+            //Entry not found. may be timed out.
+            return -1;
+        }
+        async_callBack_handler = req->resCb;
+        free(req);
+    }
     //call the responce callback API
     if(payload->operation == IDM_REQUEST)
     {
@@ -160,42 +240,62 @@ int IDM_Incoming_Response_handler(payload_t * payload)
         rbusError_t err;
 
         rbusObject_Init(&outParams, NULL);
+
+        /*set DM Value */
         rbusValue_Init(&value);
         rbusValue_SetString(value, payload->param_value);
         rbusObject_SetValue(outParams, "param_value", value);
         rbusValue_Release(value);
 
+        /*set source mac */
         rbusValue_Init(&value);
         rbusValue_SetString(value, payload->Mac_source);
         rbusObject_SetValue(outParams, "Mac_source", value);
         rbusValue_Release(value);
 
+        /*set DM Name */
         rbusValue_Init(&value);
         rbusValue_SetString(value, payload->param_name);
         rbusObject_SetValue(outParams, "param_name", value);
         rbusValue_Release(value);
 
-        CcspTraceInfo(("%s sending rbus callback responce\n", __FUNCTION__));
+        /*set OPeration type */
+        rbusValue_Init(&value);
+        rbusValue_SetInt32(value, payload->operation);
+        rbusObject_SetValue(outParams, "operation", value);
+        rbusValue_Release(value);
 
-        if(payload->status == ANSC_STATUS_SUCCESS)
+        if(payload->operation == IDM_SUBS)
         {
-            err = rbusMethod_SendAsyncResponse(req->resCb, RBUS_ERROR_SUCCESS, outParams);
-            if(err != RBUS_ERROR_SUCCESS)
-            {
-                CcspTraceInfo(("%s rbusMethod_SendAsyncResponse failed err:%d\n", __FUNCTION__, err));
-            }
+            rbusEvent_t event = {0};
+            event.name = DM_REMOTE_DEVICE_INVOKE;
+            event.data = outParams;
+            event.type = RBUS_EVENT_GENERAL;
+
+            CcspTraceInfo(("%s sending rbus Subcription responce using RM_REMOTE_INVOKE publish\n", __FUNCTION__));
+            rbusEvent_Publish(rbusHandle, &event);
+
         }else
         {
-            err = rbusMethod_SendAsyncResponse(req->resCb, RBUS_ERROR_BUS_ERROR, outParams);
-            if(err != RBUS_ERROR_SUCCESS)
+            if(payload->status == ANSC_STATUS_SUCCESS)
             {
-                CcspTraceInfo(("%s rbusMethod_SendAsyncResponse failed err:%d\n", __FUNCTION__, err));
+                err = rbusMethod_SendAsyncResponse(async_callBack_handler, RBUS_ERROR_SUCCESS, outParams);
+                if(err != RBUS_ERROR_SUCCESS)
+                {
+                    CcspTraceInfo(("%s rbusMethod_SendAsyncResponse failed err:%d\n", __FUNCTION__, err));
+                }
+            }else
+            {
+                err = rbusMethod_SendAsyncResponse(async_callBack_handler, RBUS_ERROR_BUS_ERROR, outParams);
+                if(err != RBUS_ERROR_SUCCESS)
+                {
+                    CcspTraceInfo(("%s rbusMethod_SendAsyncResponse failed err:%d\n", __FUNCTION__, err));
+                }
             }
         }
         rbusObject_Release(outParams);
     }
 
-    free(req);
     return 0;
 }
 
@@ -228,25 +328,97 @@ RecvReqList* IDM_ReceivedReqList_pop()
     return temp;
 }
 
+static void IDM_Rbus_subscriptionEventHandler(rbusHandle_t handle, rbusEvent_t const* event, rbusEventSubscription_t* subscription)
+{
+    (void)handle;
+    (void)subscription;
+
+    const char* eventName = event->name;
+    rbusValue_t valBuff = rbusObject_GetValue(event->data, NULL );
+
+    if((valBuff == NULL) || (eventName == NULL))
+    {
+        CcspTraceError(("%s : FAILED , value is NULL\n",__FUNCTION__));
+        return;
+    }
+
+    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+    if( pidmDmlInfo == NULL )
+    {
+        return  ANSC_STATUS_FAILURE;
+    }
+
+    RecvSubscriptionList *req = headRecvSubscriptionList;
+
+    while(req != NULL)
+    {
+        if (strcmp(eventName, req->param_name) == 0)
+        {
+            IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
+            payload_t payload;
+            memset(&payload, 0, sizeof(payload_t));
+            payload.operation = IDM_SUBS;
+            payload.msgType = RES;
+            payload.reqID = req->reqId;
+            strncpy(payload.Mac_source,remoteDevice->stRemoteDeviceInfo.MAC,MAC_ADDR_SIZE);
+            strncpy(payload.param_name,req->param_name,sizeof(payload.param_name));
+            //Convert rbus value to string.
+            rbusValue_ToString(valBuff,payload.param_value,sizeof(payload.param_value));
+            payload.status =  ANSC_STATUS_SUCCESS;
+
+            while(remoteDevice!=NULL)
+            {
+                if(strcasecmp(remoteDevice->stRemoteDeviceInfo.MAC, req->Mac_dest) == 0)
+                {
+                    if(remoteDevice->stRemoteDeviceInfo.conn_info.conn !=0)
+                        send_remote_message(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload);
+                    break;
+                }
+                remoteDevice=remoteDevice->next;
+            }
+
+        }
+        req = req->next;
+    }
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+}
+
 int IDM_Incoming_Request_handler(payload_t * payload)
 {
     CcspTraceInfo(("%s %d - \n", __FUNCTION__, __LINE__));
 
-    /*Create entry in incoming req list */
-    RecvReqList *getReq = malloc(sizeof(RecvReqList));
-    memset(getReq, 0, sizeof(RecvReqList));
-    getReq->reqId = payload->reqID;
-    getReq->operation = payload->operation;
-    getReq->timeout = payload->timeout;
-    getReq->type = payload->type;
-    strncpy(getReq->Mac_dest, payload->Mac_source,sizeof(getReq->Mac_dest));
-    strncpy(getReq->param_name, payload->param_name,sizeof(getReq->param_name));
-    strncpy(getReq->param_value, payload->param_value,sizeof(getReq->param_value));
-    strncpy(getReq->pComponent_name, payload->pComponent_name,sizeof(getReq->pComponent_name));
-    strncpy(getReq->pBus_path, payload->pBus_path,sizeof(getReq->pBus_path));
-    getReq->next = NULL;
+    if(payload->operation == IDM_SUBS)
+    {
+        /*Create entry in incoming subscription list */
+        RecvSubscriptionList *getReq =  malloc(sizeof(RecvSubscriptionList));
+        memset(getReq, 0, sizeof(RecvSubscriptionList));
+        strncpy(getReq->Mac_dest, payload->Mac_source,sizeof(getReq->Mac_dest));
+        strncpy(getReq->param_name, payload->param_name,sizeof(getReq->param_name));
+        getReq->reqId = payload->reqID;
+        IDM_addToReceivedSubscriptionList(getReq);
 
-    IDM_addToReceivedReqList(getReq);
+        //TODO: check timeout and userdata
+        rbusEvent_Subscribe(rbusHandle, payload->param_name, IDM_Rbus_subscriptionEventHandler, NULL, 0);
+
+
+    }else
+    {
+        /*Create entry in incoming req list */
+        RecvReqList *getReq = malloc(sizeof(RecvReqList));
+        memset(getReq, 0, sizeof(RecvReqList));
+        getReq->reqId = payload->reqID;
+        getReq->operation = payload->operation;
+        getReq->timeout = payload->timeout;
+        getReq->type = payload->type;
+        strncpy(getReq->Mac_dest, payload->Mac_source,sizeof(getReq->Mac_dest));
+        strncpy(getReq->param_name, payload->param_name,sizeof(getReq->param_name));
+        strncpy(getReq->param_value, payload->param_value,sizeof(getReq->param_value));
+        strncpy(getReq->pComponent_name, payload->pComponent_name,sizeof(getReq->pComponent_name));
+        strncpy(getReq->pBus_path, payload->pBus_path,sizeof(getReq->pBus_path));
+        getReq->next = NULL;
+
+        IDM_addToReceivedReqList(getReq);
+    }
     return 0;
 }
 

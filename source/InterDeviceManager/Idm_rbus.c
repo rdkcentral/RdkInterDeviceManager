@@ -102,7 +102,7 @@ rbusDataElement_t idmRmCapElements[] = {
         {DM_REMOTE_DEVICE_ADD_CAP, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
         {DM_REMOTE_DEVICE_REM_CAP, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
         {DM_REMOTE_DEVICE_RESET_CAP, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
-	{DM_REMOTE_DEVICE_INVOKE, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}}
+	{DM_REMOTE_DEVICE_INVOKE, RBUS_ELEMENT_TYPE_METHOD | RBUS_ELEMENT_TYPE_EVENT, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}}
     };
 
 ANSC_STATUS Idm_Create_Rbus_Obj()
@@ -637,6 +637,7 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
         param.operation = rbusValue_GetInt32(value);
         CcspTraceInfo(("%s %d - param. %d\n", __FUNCTION__, __LINE__,param.operation));
 
+        //TODO: Check possibility to make subscription request as synchronous call.
         param.resCb = asyncHandle;
  
         IDM_sendMsg_to_Remote_device(&param);

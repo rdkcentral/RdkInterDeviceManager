@@ -52,6 +52,7 @@ typedef enum _IDM_MSG_OPERATION
 {
     SET = 1,
     GET,
+    IDM_SUBS,
     IDM_REQUEST,
 
 }IDM_MSG_OPERATION;
@@ -104,6 +105,21 @@ typedef  struct _RecvReqList
     struct _RecvReqList *next;
     enum dataType_e type;
 }RecvReqList;
+
+typedef  struct _sendSubscriptionList
+{
+    uint reqId;
+    rbusMethodAsyncHandle_t resCb;
+    struct _sendSubscriptionList *next;
+}sendSubscriptionList;
+
+typedef  struct _RecvSubscriptionList
+{
+    uint reqId;
+    char Mac_dest[MAC_ADDR_SIZE];
+	char param_name[128];
+    struct _RecvSubscriptionList *next;
+}RecvSubscriptionList;
 
 void IDM_addToSendRequestList( sendReqList *newReq);
 
