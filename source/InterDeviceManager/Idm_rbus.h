@@ -61,7 +61,7 @@ rbusError_t X_RDK_Connection_GetHandler(rbusHandle_t handle, rbusProperty_t prop
 
 ANSC_STATUS Idm_PublishDmEvent(char *dm_event, void *dm_value, uint32_t waitTime);
 
-ANSC_STATUS Idm_PublishNewDeviceEvent(uint32_t deviceIndex, char *capability, uint32_t waitTime);
+ANSC_STATUS Idm_PublishNewDeviceEvent(uint32_t deviceIndex, char *capability);
 
 rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle);
 

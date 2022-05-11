@@ -312,28 +312,15 @@ ANSC_STATUS Idm_PublishDmEvent(char *dm_event, void *dm_value, uint32_t wait_tim
     return ANSC_STATUS_SUCCESS;
 }
 
-ANSC_STATUS Idm_PublishNewDeviceEvent(uint32_t deviceIndex, char *capability, uint32_t wait_time)
+ANSC_STATUS Idm_PublishNewDeviceEvent(uint32_t deviceIndex, char *capability)
 {
     rbusEvent_t event;
     rbusObject_t rdata;
     rbusValue_t value;
     char tmpString[512] = { 0 };
-    uint32_t timeout = 0; 
 
     if(deviceIndex <= 1 || capability == NULL)
         return ANSC_STATUS_FAILURE;
-
-    while(timeout < wait_time)
-    {
-        timeout ++;
-        sleep(1);
-        CcspTraceInfo(("%s %d - Waiting for new device subscription.......\n", __FUNCTION__, __LINE__));
-        if(sidmRmSubStatus.idmRmNewDeviceSubscribed == TRUE)
-        {
-            CcspTraceInfo(("%s %d - New device sucbscription succeeded.......\n", __FUNCTION__, __LINE__));
-            break;
-        }
-    }
 
     if(sidmRmSubStatus.idmRmNewDeviceSubscribed == FALSE)
     {
@@ -341,15 +328,17 @@ ANSC_STATUS Idm_PublishNewDeviceEvent(uint32_t deviceIndex, char *capability, ui
         return ANSC_STATUS_FAILURE;
     }
     
-    rbusValue_Init(&value);
     rbusObject_Init(&rdata, NULL);
-    // make a string that contains device index and its capability
-    // format is deviceIndex:capability
-    sprintf(tmpString, "%d;", deviceIndex);
-    strcat(tmpString, capability);
+    rbusValue_Init(&value);
+    rbusValue_SetString(value, capability);
+    rbusObject_SetValue(rdata, "Capabilities", value);
+    rbusValue_Release(value);
 
-    rbusObject_SetValue(rdata, RM_NEW_DEVICE_FOUND, value);
-    rbusValue_SetString(value, tmpString);
+    rbusValue_Init(&value);
+    rbusValue_SetUInt32(value, deviceIndex);
+    rbusObject_SetValue(rdata, "Index", value);
+    rbusValue_Release(value);
+
     CcspTraceInfo(("%s %d - set string %s \n", __FUNCTION__, __LINE__, tmpString));
 
     event.name = RM_NEW_DEVICE_FOUND;

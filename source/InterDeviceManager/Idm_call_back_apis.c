@@ -103,6 +103,7 @@ void Capabilities_get_cb(IDM_REMOTE_DEVICE_INFO *device, ANSC_STATUS status ,cha
                 strncpy(remoteDevice->stRemoteDeviceInfo.Capabilities,device->Capabilities, sizeof(remoteDevice->stRemoteDeviceInfo.Capabilities));
                 strncpy(remoteDevice->stRemoteDeviceInfo.ModelNumber,device->ModelNumber, sizeof(remoteDevice->stRemoteDeviceInfo.ModelNumber));
                 remoteDevice->stRemoteDeviceInfo.HelloInterval = device->HelloInterval;
+                Idm_PublishNewDeviceEvent(remoteDevice->stRemoteDeviceInfo.Index,remoteDevice->stRemoteDeviceInfo.Capabilities);
                 break;
             }
             remoteDevice=remoteDevice->next;
