@@ -103,7 +103,7 @@ void Capabilities_get_cb(IDM_REMOTE_DEVICE_INFO *device, ANSC_STATUS status ,cha
                 strncpy(remoteDevice->stRemoteDeviceInfo.Capabilities,device->Capabilities, sizeof(remoteDevice->stRemoteDeviceInfo.Capabilities));
                 strncpy(remoteDevice->stRemoteDeviceInfo.ModelNumber,device->ModelNumber, sizeof(remoteDevice->stRemoteDeviceInfo.ModelNumber));
                 remoteDevice->stRemoteDeviceInfo.HelloInterval = device->HelloInterval;
-                Idm_PublishNewDeviceEvent(remoteDevice->stRemoteDeviceInfo.Index,remoteDevice->stRemoteDeviceInfo.Capabilities);
+                Idm_PublishNewDeviceEvent(remoteDevice->stRemoteDeviceInfo.Index, remoteDevice->stRemoteDeviceInfo.Capabilities, remoteDevice->stRemoteDeviceInfo.MAC);
                 break;
             }
             remoteDevice=remoteDevice->next;
@@ -235,18 +235,41 @@ void discovery_cb_thread(void *arg)
 
             if(!discovery_status)
             {
+                //TODO: Publish device change event.
                 remoteDevice->stRemoteDeviceInfo.Status = DEVICE_NOT_DETECTED;
                 if(remoteDevice->stRemoteDeviceInfo.conn_info.conn != 0)
                 {
                     close_remote_connection(&remoteDevice->stRemoteDeviceInfo.conn_info);
                 }
                 remoteDevice->stRemoteDeviceInfo.conn_info.conn = 0;
+                break;
             }
+
+            if(authentication_status)
+                remoteDevice->stRemoteDeviceInfo.Status = DEVICE_AUTHENTICATED;
+            else if(discovery_status)
+                remoteDevice->stRemoteDeviceInfo.Status = DEVICE_DETECTED;
 
 
             strncpy(remoteDevice->stRemoteDeviceInfo.IPv4, Device->ipv4_addr, IPv4_ADDR_SIZE);
             strncpy(remoteDevice->stRemoteDeviceInfo.IPv6, Device->ipv6_addr, IPv6_ADDR_SIZE);
+
+            /* Create link */
+            connection_config_t connectionConf;
+            memset(&connectionConf, 0, sizeof(connection_config_t));
+            strncpy(connectionConf.interface, pidmDmlInfo->stConnectionInfo.Interface,sizeof(connectionConf.interface));
+            connectionConf.port = IDM_DEFAULT_DEVICE_TCP_PORT;
+            connectionConf.device = Device;
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            pidmDmlInfo = NULL;
+            if(open_remote_connection(&connectionConf, connection_cb, rcv_message_cb) !=0)
+            {
+                CcspTraceError(("%s %d - open_remote_connection failed\n", __FUNCTION__, __LINE__));
+                free(threadArgs);
+                return -1;
+            }
             break;
+
         }
         remoteDevice=remoteDevice->next;
     }    
@@ -294,6 +317,7 @@ void discovery_cb_thread(void *arg)
         connectionConf.port = IDM_DEFAULT_DEVICE_TCP_PORT;
         connectionConf.device = Device;
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+        pidmDmlInfo = NULL;
         if(open_remote_connection(&connectionConf, connection_cb, rcv_message_cb) !=0)
         {
             CcspTraceError(("%s %d - open_remote_connection failed\n", __FUNCTION__, __LINE__));
@@ -302,7 +326,10 @@ void discovery_cb_thread(void *arg)
             return -1;
         }
     }
-    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+    if(pidmDmlInfo != NULL)
+    {
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+    }
                 CcspTraceError(("%s %d - exit \n", __FUNCTION__, __LINE__));
     free(threadArgs);
     pthread_exit(NULL);

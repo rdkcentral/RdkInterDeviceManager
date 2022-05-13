@@ -312,12 +312,11 @@ ANSC_STATUS Idm_PublishDmEvent(char *dm_event, void *dm_value, uint32_t wait_tim
     return ANSC_STATUS_SUCCESS;
 }
 
-ANSC_STATUS Idm_PublishNewDeviceEvent(uint32_t deviceIndex, char *capability)
+ANSC_STATUS Idm_PublishNewDeviceEvent(uint32_t deviceIndex, char *capability, char *mac_addr)
 {
     rbusEvent_t event;
     rbusObject_t rdata;
     rbusValue_t value;
-    char tmpString[512] = { 0 };
 
     if(deviceIndex <= 1 || capability == NULL)
         return ANSC_STATUS_FAILURE;
@@ -339,7 +338,12 @@ ANSC_STATUS Idm_PublishNewDeviceEvent(uint32_t deviceIndex, char *capability)
     rbusObject_SetValue(rdata, "Index", value);
     rbusValue_Release(value);
 
-    CcspTraceInfo(("%s %d - set string %s \n", __FUNCTION__, __LINE__, tmpString));
+    /*set source mac */
+    rbusValue_Init(&value);
+    rbusValue_SetString(value, mac_addr);
+    rbusObject_SetValue(rdata, "Mac_addr", value);
+    rbusValue_Release(value);
+
 
     event.name = RM_NEW_DEVICE_FOUND;
     event.data = rdata;
@@ -349,7 +353,6 @@ ANSC_STATUS Idm_PublishNewDeviceEvent(uint32_t deviceIndex, char *capability)
         return ANSC_STATUS_FAILURE;
     }
     CcspTraceInfo(("%s %d - Successfully Pusblished new device event RM_NEW_DEVICE_FOUND\n", __FUNCTION__, __LINE__));
-    rbusValue_Release(value);
     rbusObject_Release(rdata);
 
     return ANSC_STATUS_SUCCESS;
