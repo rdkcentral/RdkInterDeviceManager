@@ -424,9 +424,24 @@ int IDM_Incoming_Request_handler(payload_t * payload)
 
 void IDM_Incoming_req_handler_thread()
 {
+    // event handler
+    int n = 0;
+    struct timeval tv;
+
     PIDM_DML_INFO pidmDmlInfo = NULL;
     while(true)
     {
+        /* Wait up to 250 milliseconds */
+        tv.tv_sec = 0;
+        tv.tv_usec = 250000;
+
+        n = select(0, NULL, NULL, NULL, &tv);
+        if (n < 0)
+        {
+            /* interrupted by signal or something, continue */
+            continue;
+        }
+
         RecvReqList *ReqEntry = IDM_ReceivedReqList_pop();
         if(ReqEntry!= NULL)
         {

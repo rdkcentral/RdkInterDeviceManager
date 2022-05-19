@@ -309,10 +309,40 @@ void discovery_cb_thread(void *arg)
     return 0;
 }
 
+void start_discovery_thread(void)
+{
+    CcspTraceInfo(("%s %d - \n", __FUNCTION__, __LINE__));
+
+    discovery_config_t discoveryConf;
+    pthread_detach(pthread_self());
+
+    /* Update discovery_config deatils */
+    discoveryConf.port = IDM_DEFAULT_DEVICE_TCP_PORT;
+    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+    if(pidmDmlInfo != NULL)
+    {
+        discoveryConf.discovery_interval = (pidmDmlInfo->stConnectionInfo.HelloInterval / 1000);
+
+        strncpy(discoveryConf.interface, pidmDmlInfo->stConnectionInfo.Interface,sizeof(discoveryConf.interface));
+        discoveryConf.loss_detection_window = (pidmDmlInfo->stConnectionInfo.DetectionWindow /1000);//TODO: update
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+    }
+    discoveryConf.loss_detection_window = DEFAULT_LOSS_DETECTION_WINDOW;
+
+    /*Start CAL Device discovery process */
+    if(start_discovery(&discoveryConf, discovery_cb) !=0)
+    {
+        CcspTraceInfo(("%s %d - start_discovery start failed\n", __FUNCTION__, __LINE__));
+        pthread_exit(NULL);
+        return 0;
+    }
+
+    pthread_exit(NULL);
+    return 0;
+}
 ANSC_STATUS IDM_Start_Device_Discovery()
 {
-    discovery_config_t discoveryConf;
-    pthread_t                threadId;
+    pthread_t                threadId, discovery_threadId;
     int                      iErrorCode     = 0;
 
     //TODO:(Remove after mesh implementation) wait for IDM interface static configurations
@@ -335,26 +365,17 @@ ANSC_STATUS IDM_Start_Device_Discovery()
         CcspTraceInfo(("%s %d - IDM Incoming_req_handler_thread Started Successfully\n", __FUNCTION__, __LINE__ ));
     }
 
-    /* Update discovery_config deatils */
-    discoveryConf.port = IDM_DEFAULT_DEVICE_TCP_PORT;
-    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
-    if(pidmDmlInfo != NULL)
+    /* Start incoming start_discovery thread */
+    iErrorCode = pthread_create( &discovery_threadId, NULL, &start_discovery_thread, NULL);
+    if( 0 != iErrorCode )
     {
-        discoveryConf.discovery_interval = (pidmDmlInfo->stConnectionInfo.HelloInterval / 1000);
-
-        strncpy(discoveryConf.interface, pidmDmlInfo->stConnectionInfo.Interface,sizeof(discoveryConf.interface));
-        discoveryConf.loss_detection_window = (pidmDmlInfo->stConnectionInfo.DetectionWindow /1000);//TODO: update 
-        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
-    }
-    discoveryConf.loss_detection_window = DEFAULT_LOSS_DETECTION_WINDOW;
-
-    /*Start CAL Device discovery process */
-    if(start_discovery(&discoveryConf, discovery_cb) !=0)
-    {
-        CcspTraceInfo(("%s %d - start_discovery start failed\n", __FUNCTION__, __LINE__));
+        CcspTraceInfo(("%s %d - Failed to start start_discovery Thread EC:%d\n", __FUNCTION__, __LINE__, iErrorCode ));
         return ANSC_STATUS_FAILURE;
     }
+    else
+    {
+        CcspTraceInfo(("%s %d - IDM start_discovery thread Started Successfully\n", __FUNCTION__, __LINE__ ));
+    }
 
-    CcspTraceInfo(("%s %d - discovery process started successfully \n", __FUNCTION__, __LINE__));
     return ANSC_STATUS_SUCCESS;
 }
