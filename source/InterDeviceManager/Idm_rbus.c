@@ -750,6 +750,7 @@ rbusError_t X_RDK_Connection_SetHandler(rbusHandle_t handle, rbusProperty_t prop
 	pidmDmlInfo->stConnectionInfo.Port = rbusValue_GetUInt32(value);
     }
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+    IdmMgr_write_IDM_ParametersToPSM();
     return RBUS_ERROR_SUCCESS;
 }
 

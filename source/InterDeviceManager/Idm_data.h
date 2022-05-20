@@ -39,6 +39,10 @@
 
 #define PSM_BROADCAST_INTERFACE_NAME      "dmsb.interdevicemanager.BroadcastInterface"
 #define PSM_DEVICE_CAPABILITIES           "dmsb.interdevicemanager.Capabilities"
+#define PSM_DEVICE_HELLO_INTERVAL         "dmsb.interdevicemanager.HelloInterval"
+#define PSM_DEVICE_DETECION_WINDOW        "dmsb.interdevicemanager.DetectionWindow"
+#define PSM_DEVICE_PORT                   "dmsb.interdevicemanager.Port"
+
 
 typedef struct _WANMGR_CONFIG_DATA_
 {
@@ -53,5 +57,7 @@ void IdmMgrDml_GetConfigData_release(PIDM_DML_INFO pidmDmlInfo);
 void IdmMgr_SetConfigData_Default();
 
 ANSC_STATUS IdmMgr_Data_Init(void);
+
+int IdmMgr_write_IDM_ParametersToPSM();
 
 #endif

@@ -38,7 +38,6 @@
 
 #define DM_REMOTE_DEVICE_TABLE "Device.X_RDK_Remote.Device"
 #define IDM_DEFAULT_DEVICE_TCP_PORT 50765 //TODO: port no TBD
-#define DEFAULT_LOSS_DETECTION_WINDOW 30
 #define DEFAULT_IDM_REQUEST_TIMEOUT 10
 
 typedef struct discovery_cb_threadargs
@@ -354,7 +353,6 @@ void start_discovery_thread(void)
         discoveryConf.loss_detection_window = (pidmDmlInfo->stConnectionInfo.DetectionWindow /1000);//TODO: update
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     }
-    discoveryConf.loss_detection_window = DEFAULT_LOSS_DETECTION_WINDOW;
 
     /*Start CAL Device discovery process */
     if(start_discovery(&discoveryConf, discovery_cb) !=0)

@@ -222,12 +222,12 @@ int open_remote_connection(connection_config_t* connectionConf, int (*connection
     servaddr.sin_addr.s_addr = inet_addr(connectionConf->device->ipv4_addr);
     servaddr.sin_port = htons(connectionConf->port);
 
+    CcspTraceInfo(("waiting to connect to the IDM server..\n"));
     while (1)
     {
         // Wait indefinitely untill other end idm server accepts the connection
         if (connect(client_sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) != 0)
         {
-            CcspTraceInfo(("waiting to connect to the IDM server..\n"));
             sleep(1);
         }
         else {

@@ -239,11 +239,11 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
 
     /* Wait for interface to come up */
+        CcspTraceInfo(("[%s: %d] Wait for interface to come up\n", __FUNCTION__, __LINE__));
     ioctl(fd, SIOCGIFFLAGS, &ifr);
     while(!((ifr.ifr_flags & ( IFF_UP | IFF_BROADCAST )) == ( IFF_UP | IFF_BROADCAST )))
     {
         ioctl(fd, SIOCGIFFLAGS, &ifr);
-        CcspTraceInfo(("[%s: %d] Wait for interface to come up\n", __FUNCTION__, __LINE__));
         sleep(2);
     }
 

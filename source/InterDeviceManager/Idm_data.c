@@ -72,6 +72,85 @@ static int IdmMgr_get_IDM_ParametersFromPSM()
         AnscCopyString(pidmDmlInfo->stConnectionInfo.Interface, param_value);
     }
 
+    _ansc_memset(param_name, 0, sizeof(param_name));
+    _ansc_memset(param_value, 0, sizeof(param_value));
+    _ansc_sprintf(param_name, PSM_DEVICE_HELLO_INTERVAL);
+
+    retPsmGet = IDM_RdkBus_GetParamValuesFromDB(param_name,param_value,sizeof(param_value));
+
+    if (retPsmGet == CCSP_SUCCESS)
+    {
+        _ansc_sscanf(param_value, "%d", &(pidmDmlInfo->stConnectionInfo.HelloInterval));
+    }
+
+    _ansc_memset(param_name, 0, sizeof(param_name));
+    _ansc_memset(param_value, 0, sizeof(param_value));
+    _ansc_sprintf(param_name, PSM_DEVICE_DETECION_WINDOW);
+
+    retPsmGet = IDM_RdkBus_GetParamValuesFromDB(param_name,param_value,sizeof(param_value));
+
+    if (retPsmGet == CCSP_SUCCESS)
+    {
+        _ansc_sscanf(param_value, "%d", &(pidmDmlInfo->stConnectionInfo.DetectionWindow));
+    }
+
+    _ansc_memset(param_name, 0, sizeof(param_name));
+    _ansc_memset(param_value, 0, sizeof(param_value));
+    _ansc_sprintf(param_name, PSM_DEVICE_PORT);
+
+    retPsmGet = IDM_RdkBus_GetParamValuesFromDB(param_name,param_value,sizeof(param_value));
+
+    if (retPsmGet == CCSP_SUCCESS)
+    {
+        _ansc_sscanf(param_value, "%d", &(pidmDmlInfo->stConnectionInfo.Port));
+    }
+
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+
+    return retPsmGet;
+}
+
+int IdmMgr_write_IDM_ParametersToPSM()
+{
+    int retPsmGet = CCSP_SUCCESS;
+    char param_value[256];
+    char param_name[512];
+
+    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+
+    _ansc_memset(param_name, 0, sizeof(param_name));
+    _ansc_memset(param_value, 0, sizeof(param_value));
+    _ansc_sprintf(param_name, PSM_DEVICE_CAPABILITIES);
+    _ansc_sprintf(param_value, pidmDmlInfo->stConnectionInfo.Capabilities);
+    retPsmGet = IDM_RdkBus_SetParamValuesToDB(param_name,param_value);
+
+    _ansc_memset(param_name, 0, sizeof(param_name));
+    _ansc_memset(param_value, 0, sizeof(param_value));
+    _ansc_sprintf(param_name, PSM_BROADCAST_INTERFACE_NAME);
+    _ansc_sprintf(param_value, pidmDmlInfo->stConnectionInfo.Interface);
+    retPsmGet = IDM_RdkBus_SetParamValuesToDB(param_name,param_value);
+
+    _ansc_memset(param_name, 0, sizeof(param_name));
+    _ansc_memset(param_value, 0, sizeof(param_value));
+    _ansc_sprintf(param_name, PSM_DEVICE_HELLO_INTERVAL);
+    _ansc_sprintf(param_value, "%d", pidmDmlInfo->stConnectionInfo.HelloInterval);
+    retPsmGet = IDM_RdkBus_SetParamValuesToDB(param_name,param_value);
+
+
+    _ansc_memset(param_name, 0, sizeof(param_name));
+    _ansc_memset(param_value, 0, sizeof(param_value));
+    _ansc_sprintf(param_name, PSM_DEVICE_DETECION_WINDOW);
+    _ansc_sprintf(param_value, "%d", pidmDmlInfo->stConnectionInfo.DetectionWindow);
+    retPsmGet = IDM_RdkBus_SetParamValuesToDB(param_name,param_value);
+
+
+    _ansc_memset(param_name, 0, sizeof(param_name));
+    _ansc_memset(param_value, 0, sizeof(param_value));
+    _ansc_sprintf(param_name, PSM_DEVICE_PORT);
+    _ansc_sprintf(param_value, "%d", pidmDmlInfo->stConnectionInfo.Port);
+    retPsmGet = IDM_RdkBus_SetParamValuesToDB(param_name,param_value);
+
+
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
 
     return retPsmGet;
