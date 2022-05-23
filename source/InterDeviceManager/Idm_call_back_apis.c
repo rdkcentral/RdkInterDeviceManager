@@ -144,12 +144,12 @@ int connection_cb(device_info_t* Device, connection_info_t* conn_info, uint encr
         }
         if(encryption_status)
         {
-            remoteDevice->stRemoteDeviceInfo.conn_info.conn = conn_info->conn;
-            if(remoteDevice->stRemoteDeviceInfo.Status == DEVICE_CONNECTED)
+            if(remoteDevice->stRemoteDeviceInfo.Status == DEVICE_CONNECTED || remoteDevice->stRemoteDeviceInfo.Status == DEVICE_NOT_DETECTED)
             {
                 IdmMgrDml_GetConfigData_release(pidmDmlInfo);
                 break;
             }
+            remoteDevice->stRemoteDeviceInfo.conn_info.conn = conn_info->conn;
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             CcspTraceInfo(("%s %d - sending Capabilities Request socket : %d\n", __FUNCTION__, __LINE__,remoteDevice->stRemoteDeviceInfo.conn_info.conn));
             IDM_sendMsg_to_Remote_device(&param);
