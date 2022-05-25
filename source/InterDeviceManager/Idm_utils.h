@@ -60,5 +60,6 @@ int IDM_RdkBus_SetParamValuesToDB( char *pParamName, char *pParamVal );
 int IDM_RdkBus_GetParamValuesFromDB( char *pParamName, char *pReturnVal, int returnValLength );
 
 ANSC_STATUS IDM_UpdateLocalDeviceData();
-
+ANSC_STATUS IDM_SyseventInit();
+void IDM_SyseventClose();
 #endif

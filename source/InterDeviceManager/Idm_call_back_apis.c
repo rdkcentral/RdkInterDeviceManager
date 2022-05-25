@@ -32,6 +32,8 @@
  * limitations under the License.
  */
 
+#include <sysevent/sysevent.h>
+#include <syscfg/syscfg.h>
 #include "Idm_call_back_apis.h"
 #include "Idm_TCP_apis.h"
 #include "Idm_msg_process.h"
@@ -39,6 +41,8 @@
 #define DM_REMOTE_DEVICE_TABLE "Device.X_RDK_Remote.Device"
 #define IDM_DEFAULT_DEVICE_TCP_PORT 50765 //TODO: port no TBD
 #define DEFAULT_IDM_REQUEST_TIMEOUT 10
+
+#define SYSEVENT_FIREWALL_RESTART "firewall-restart"
 
 typedef struct discovery_cb_threadargs
 {
@@ -48,6 +52,8 @@ typedef struct discovery_cb_threadargs
 } Discovery_cb_threadargs;
 
 extern rbusHandle_t        rbusHandle;
+extern int sysevent_fd;
+extern token_t sysevent_token;
 
 void discovery_cb_thread(void *arg);
 
@@ -389,6 +395,9 @@ ANSC_STATUS IDM_Start_Device_Discovery()
     {
         CcspTraceInfo(("%s %d - IDM Incoming_req_handler_thread Started Successfully\n", __FUNCTION__, __LINE__ ));
     }
+
+    /* restart Firewall */
+    sysevent_set(sysevent_fd, sysevent_token, SYSEVENT_FIREWALL_RESTART, NULL, 0);
 
     /* Start incoming start_discovery thread */
     iErrorCode = pthread_create( &discovery_threadId, NULL, &start_discovery_thread, NULL);

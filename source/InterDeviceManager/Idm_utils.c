@@ -36,9 +36,57 @@
 #include <sys/ioctl.h>
 #include "Idm_rbus.h"
 
+#include <sysevent/sysevent.h>
+#include <syscfg/syscfg.h>
+
+int sysevent_fd = -1;
+token_t sysevent_token;
+
+#define SYS_IP_ADDR                 "127.0.0.1"
+#define IDM_SYSNAME_SND          "IDM"
+#define SYSEVENT_OPEN_MAX_RETRIES   6
+#define MESH_INTERFACE_STATUS     "mesh_wan_linkstatus"
+#define MESH_INTERFACE_STATUS_UP  "up"
+
+
 extern ANSC_HANDLE  bus_handle;
 extern char         g_Subsystem[32];
 static IDM_DML_LINK_LIST sidmDmlListInfo;
+
+ANSC_STATUS IDM_SyseventInit()
+{
+    ANSC_STATUS ret = ANSC_STATUS_SUCCESS;
+    bool send_fd_status = FALSE;
+    int try = 0;
+
+    /* Open sysevent descriptor to send messages */
+    while(try < SYSEVENT_OPEN_MAX_RETRIES)
+    {
+       sysevent_fd =  sysevent_open(SYS_IP_ADDR, SE_SERVER_WELL_KNOWN_PORT, SE_VERSION, IDM_SYSNAME_SND, &sysevent_token);
+       if(sysevent_fd >= 0)
+       {
+          send_fd_status = TRUE;
+          break;
+       }
+       try++;
+       usleep(50000);
+    }
+    if (send_fd_status == FALSE)
+    {
+        ret = ANSC_STATUS_FAILURE;
+    }
+
+    return ret;
+}
+
+void IDM_SyseventClose()
+{
+    if (0 <= sysevent_fd)
+    {
+        sysevent_close(sysevent_fd, sysevent_token);
+    }
+
+}
 
 ANSC_STATUS addDevice(IDM_REMOTE_DEVICE_LINK_INFO *newNode)
 {
@@ -218,6 +266,18 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
 {
     struct  ifreq ifr;
     int      fd = -1;
+
+    /* Wait for mesh */
+    CcspTraceInfo(("[%s: %d] Wait for mesh to come up\n", __FUNCTION__, __LINE__));
+    char meshStatus[32] = {0};
+
+    do
+    {
+        /* sysevent get of mesh status */
+        sysevent_get(sysevent_fd, sysevent_token, MESH_INTERFACE_STATUS, meshStatus, sizeof(meshStatus));
+        sleep(2);
+
+    } while(strcmp(meshStatus, MESH_INTERFACE_STATUS_UP) != 0);
 
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
