@@ -107,7 +107,6 @@ void IdmMgr_SetConfigData_Default()
         AnscZeroMemory(pidmDmlInfo, (sizeof(IDM_DML_INFO)));
         pidmDmlInfo->stConnectionInfo.HelloInterval = DEFAULT_HELLO_INTERVAL;
 
-        strncpy(pidmDmlInfo->stConnectionInfo.HelloIPv4SubnetList, DEFAULT_SUBNET_LIST, sizeof(pidmDmlInfo->stConnectionInfo.HelloIPv4SubnetList));
         strncpy(pidmDmlInfo->stConnectionInfo.Interface, DEFAULT_BC_INTF, sizeof(pidmDmlInfo->stConnectionInfo.Interface));
         pidmDmlInfo->stConnectionInfo.DetectionWindow = DEFAULT_DETECTION_WINDOW;
         pidmDmlInfo->stConnectionInfo.Port = DEFAULT_BC_PORT;

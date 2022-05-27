@@ -90,8 +90,8 @@ rbusDataElement_t idmRmPublishElements[] = {
 //2. local data
 rbusDataElement_t idmConnHcElements[] = {
     {DM_CONN_HELLO_INTERVAL, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}},
-    {DM_CONN_HELLO_IPV4SUBNET_LIST, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}},
-    {DM_CONN_HELLO_IPV6SUBNET_LIST, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}},
+    {DM_CONN_HELLO_IPV4SUBNET_LIST, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, NULL, NULL, NULL, NULL, NULL}},
+    {DM_CONN_HELLO_IPV6SUBNET_LIST, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, NULL, NULL, NULL, NULL, NULL}},
     {DM_CONN_DETECTION_WINDOW, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}},
     {DM_CONN_INTF, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}},
     {DM_CONN_PORT, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}}
@@ -716,25 +716,6 @@ rbusError_t X_RDK_Connection_SetHandler(rbusHandle_t handle, rbusProperty_t prop
 
         pidmDmlInfo->stConnectionInfo.HelloInterval = rbusValue_GetInt32(value);
     }
-    if(strcmp(name, "Device.X_RDK_Connection.HelloIPv4SubnetList") == 0)
-    {
-        if (type != RBUS_STRING)
-        {
-            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
-            return RBUS_ERROR_INVALID_INPUT;
-        }
-
-        strncpy(pidmDmlInfo->stConnectionInfo.HelloIPv4SubnetList, rbusValue_GetString(value, NULL), sizeof(pidmDmlInfo->stConnectionInfo.HelloIPv4SubnetList));
-    }
-    if(strcmp(name, "Device.X_RDK_Connection.HelloIPv6SubnetList") == 0)
-    {
-        if (type != RBUS_STRING)
-        {
-            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
-            return RBUS_ERROR_INVALID_INPUT;
-        }
-        strncpy(pidmDmlInfo->stConnectionInfo.HelloIPv6SubnetList, rbusValue_GetString(value, NULL), sizeof(pidmDmlInfo->stConnectionInfo.HelloIPv6SubnetList));
-    }
     if(strcmp(name, "Device.X_RDK_Connection.DetectionWindow") == 0)
     {
         if (type != RBUS_INT32)
@@ -747,12 +728,14 @@ rbusError_t X_RDK_Connection_SetHandler(rbusHandle_t handle, rbusProperty_t prop
     }
     if(strcmp(name, "Device.X_RDK_Connection.Interface") == 0)
     {
-        if (type != RBUS_STRING)
+        char *InterfaceName = rbusValue_GetString(value, NULL);
+        CcspTraceInfo(("%s %d - InterfaceName %s strlen %d\n", __FUNCTION__, __LINE__, InterfaceName, strlen(InterfaceName)));
+        if (type != RBUS_STRING || InterfaceName == NULL || strlen(InterfaceName) <= 0)
         {
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_INVALID_INPUT;
         }
-        strncpy(pidmDmlInfo->stConnectionInfo.Interface, rbusValue_GetString(value, NULL), sizeof(pidmDmlInfo->stConnectionInfo.Interface));
+        strncpy(pidmDmlInfo->stConnectionInfo.Interface, InterfaceName, sizeof(pidmDmlInfo->stConnectionInfo.Interface));
     }
     if(strcmp(name, "Device.X_RDK_Connection.Port") == 0)
     {

@@ -205,6 +205,14 @@ int IDM_RdkBus_SetParamValuesToDB( char *pParamName, char *pParamVal )
     return retPsmSet;
 }
 
+unsigned int cidrMask(unsigned int n) {
+    unsigned int count = 0;
+    while (n) {
+        count += n & 1;
+        n >>= 1;
+    }
+    return count;
+}
 
 ANSC_STATUS IDM_UpdateLocalDeviceData()
 {
@@ -249,6 +257,7 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
     localDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
     if (localDevice)
     {
+        struct in_addr netMask, ip_addr;
         /* get Interface MAC */
         ioctl(fd, SIOCGIFHWADDR, &ifr);
         const unsigned char* mac=(unsigned char*)ifr.ifr_hwaddr.sa_data;
@@ -259,6 +268,13 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
         ifr.ifr_addr.sa_family = AF_INET;
         ioctl(fd, SIOCGIFADDR, &ifr);
         sprintf(localDevice->stRemoteDeviceInfo.IPv4,"%s",inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));
+        ip_addr = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
+
+        /* get IPv4 netmask */
+        ioctl(fd, SIOCGIFNETMASK, &ifr);
+        netMask.s_addr = ip_addr.s_addr & ((struct sockaddr_in *)&ifr.ifr_netmask)->sin_addr.s_addr;
+        sprintf(pidmDmlInfo->stConnectionInfo.HelloIPv4SubnetList,"%s/%u", inet_ntoa(netMask), cidrMask(((struct sockaddr_in *)&ifr.ifr_netmask)->sin_addr.s_addr));
+        CcspTraceInfo(("[%s: %d] HelloIPv4SubnetList %s \n", __FUNCTION__, __LINE__,pidmDmlInfo->stConnectionInfo.HelloIPv4SubnetList));
 
         //TODO: Update IPv6 address
         close(fd);
