@@ -392,7 +392,7 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_BUS_ERROR;   
         }
-        rbusValue_SetInt32(value, index_node->stRemoteDeviceInfo.Status);
+        rbusValue_SetUInt32(value, index_node->stRemoteDeviceInfo.Status);
     }
     if(strstr(name, ".HelloInterval"))
     {
@@ -405,7 +405,7 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_BUS_ERROR;
         }
-        rbusValue_SetInt32(value, index_node->stRemoteDeviceInfo.HelloInterval);
+        rbusValue_SetUInt32(value, index_node->stRemoteDeviceInfo.HelloInterval);
     }
     if(strstr(name, ".MAC"))
     {
@@ -477,7 +477,7 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
             return RBUS_ERROR_BUS_ERROR;   
         }
         
-        rbusValue_SetInt32(value, pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries);
+        rbusValue_SetUInt32(value, pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries);
         CcspTraceInfo(("%s %d - Number of entries:%d\n", __FUNCTION__, __LINE__, 
                             pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries));
     }
@@ -490,7 +490,7 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
             return RBUS_ERROR_BUS_ERROR;
         }
 
-        rbusValue_SetInt32(value, pidmDmlInfo->stRemoteInfo.Port);
+        rbusValue_SetUInt32(value, pidmDmlInfo->stRemoteInfo.Port);
         CcspTraceInfo(("%s %d - Port :%d\n", __FUNCTION__, __LINE__,
                             pidmDmlInfo->stRemoteInfo.Port));
     }
@@ -661,7 +661,7 @@ rbusError_t X_RDK_Connection_GetHandler(rbusHandle_t handle, rbusProperty_t prop
 
     if(strcmp(name, "Device.X_RDK_Connection.HelloInterval") == 0)
     {
-        rbusValue_SetInt32(value, pidmDmlInfo->stConnectionInfo.HelloInterval);
+        rbusValue_SetUInt32(value, pidmDmlInfo->stConnectionInfo.HelloInterval);
     }
     else if(strcmp(name, "Device.X_RDK_Connection.HelloIPv4SubnetList") == 0)
     {
@@ -673,7 +673,7 @@ rbusError_t X_RDK_Connection_GetHandler(rbusHandle_t handle, rbusProperty_t prop
     }
     else if (strcmp(name, "Device.X_RDK_Connection.DetectionWindow") == 0)
     {
-        rbusValue_SetInt32(value, pidmDmlInfo->stConnectionInfo.DetectionWindow);
+        rbusValue_SetUInt32(value, pidmDmlInfo->stConnectionInfo.DetectionWindow);
     }
     else if (strcmp(name, "Device.X_RDK_Connection.Interface") == 0)
     {
@@ -681,7 +681,7 @@ rbusError_t X_RDK_Connection_GetHandler(rbusHandle_t handle, rbusProperty_t prop
     }
     else if (strcmp(name, "Device.X_RDK_Connection.Port") == 0)
     {
-        rbusValue_SetInt32(value, pidmDmlInfo->stConnectionInfo.Port);
+        rbusValue_SetUInt32(value, pidmDmlInfo->stConnectionInfo.Port);
     }
     else
     {
@@ -711,23 +711,23 @@ rbusError_t X_RDK_Connection_SetHandler(rbusHandle_t handle, rbusProperty_t prop
 
     if(strcmp(name, "Device.X_RDK_Connection.HelloInterval") == 0)
     {
-        if (type != RBUS_INT32)
+        if (type != RBUS_UINT32)
         {
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_INVALID_INPUT;
         }
 
-        pidmDmlInfo->stConnectionInfo.HelloInterval = rbusValue_GetInt32(value);
+        pidmDmlInfo->stConnectionInfo.HelloInterval = rbusValue_GetUInt32(value);
     }
     if(strcmp(name, "Device.X_RDK_Connection.DetectionWindow") == 0)
     {
-        if (type != RBUS_INT32)
+        if (type != RBUS_UINT32)
         {
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_INVALID_INPUT;
         }
 
-        pidmDmlInfo->stConnectionInfo.DetectionWindow = rbusValue_GetInt32(value);
+        pidmDmlInfo->stConnectionInfo.DetectionWindow = rbusValue_GetUInt32(value);
     }
     if(strcmp(name, "Device.X_RDK_Connection.Interface") == 0)
     {
@@ -742,12 +742,12 @@ rbusError_t X_RDK_Connection_SetHandler(rbusHandle_t handle, rbusProperty_t prop
     }
     if(strcmp(name, "Device.X_RDK_Connection.Port") == 0)
     {
-        if (type != RBUS_INT32)
+        if (type != RBUS_UINT32)
         {
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
 	    return RBUS_ERROR_INVALID_INPUT;
 	}
-	pidmDmlInfo->stConnectionInfo.Port = rbusValue_GetInt32(value);
+	pidmDmlInfo->stConnectionInfo.Port = rbusValue_GetUInt32(value);
     }
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return RBUS_ERROR_SUCCESS;
@@ -766,13 +766,13 @@ rbusError_t X_RDK_Remote_Device_SetHandler(rbusHandle_t handle, rbusProperty_t p
 
     if(strcmp(name, "Device.X_RDK_Remote.Port") == 0)
     {
-        if (type != RBUS_INT32)
+        if (type != RBUS_UINT32)
         {
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             CcspTraceInfo(("%s %d - set Device.X_RDK_Remote.Port Failed\n", __FUNCTION__, __LINE__));
             return RBUS_ERROR_INVALID_INPUT;
         }
-        pidmDmlInfo->stRemoteInfo.Port = rbusValue_GetInt32(value);
+        pidmDmlInfo->stRemoteInfo.Port = rbusValue_GetUInt32(value);
     }
     CcspTraceInfo(("%s %d - Device.X_RDK_Remote.Port updated to %d\n", __FUNCTION__, __LINE__, pidmDmlInfo->stRemoteInfo.Port));
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
