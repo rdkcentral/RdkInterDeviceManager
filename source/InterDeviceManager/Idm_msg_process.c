@@ -185,6 +185,7 @@ ANSC_STATUS IDM_sendMsg_to_Remote_device(idm_send_msg_Params_t *param)
 
                 /* send message */
                 send_remote_message(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload);
+                usleep(250000); //Sleep for 250ms
             }else
             {
                 IdmMgrDml_GetConfigData_release(pidmDmlInfo);
