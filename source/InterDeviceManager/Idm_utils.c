@@ -298,8 +298,16 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
 
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
 
+    /*Wait for interface to get valid IP */
+    CcspTraceInfo(("[%s: %d] Wait for interface to get valid IP \n", __FUNCTION__, __LINE__));
+    ifr.ifr_addr.sa_family = AF_INET;
+    while(ioctl(fd, SIOCGIFADDR, &ifr) < 0)
+    {
+        sleep(2);
+    }
+
     /* Wait for interface to come up */
-        CcspTraceInfo(("[%s: %d] Wait for interface to come up\n", __FUNCTION__, __LINE__));
+    CcspTraceInfo(("[%s: %d] Wait for interface to come up\n", __FUNCTION__, __LINE__));
     ioctl(fd, SIOCGIFFLAGS, &ifr);
     while(!((ifr.ifr_flags & ( IFF_UP | IFF_BROADCAST )) == ( IFF_UP | IFF_BROADCAST )))
     {
