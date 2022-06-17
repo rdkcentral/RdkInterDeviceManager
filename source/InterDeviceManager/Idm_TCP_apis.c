@@ -33,10 +33,14 @@
  */
 
 #include "Idm_TCP_apis.h"
-
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 #define IDM_DEVICE_TCP_PORT 4444 //TODO: port no TBD
 #define MAX_TCP_CLIENTS 30
+#define SSL_CERTIFICATE "/tmp/idm_xpki_cert"
+#define SSL_KEY         "/tmp/idm_xpki_key"
 
+bool ssl_lib_init = false;
 bool TCP_server_started = false;
 
 typedef (*callback_recv)( connection_info_t* conn_info, void *payload);
@@ -47,6 +51,36 @@ typedef struct tcp_server_threadargs
     int port;
 } TcpServerThreadArgs;
 
+SSL_CTX* init_ctx(void)
+{
+    SSL_CTX *ctx = NULL;
+    OpenSSL_add_all_algorithms();
+    SSL_load_error_strings();
+    ctx = SSL_CTX_new(SSLv23_method());
+    //SSL_CTX_set_options(ctx, SSL_OP_NO_TICKET);
+    //SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
+    return ctx;
+}
+
+int load_certificate(SSL_CTX* ctx)
+{
+    if ( SSL_CTX_use_certificate_file(ctx, SSL_CERTIFICATE, SSL_FILETYPE_PEM) <= 0 )
+    {
+        CcspTraceError(("(%s:%d) Error in loading certificate\n", __FUNCTION__, __LINE__));
+        return -1;
+    }
+    if ( SSL_CTX_use_PrivateKey_file(ctx, SSL_KEY, SSL_FILETYPE_PEM) <= 0 )
+    {
+        CcspTraceError(("(%s:%d) Error in loading private key file\n", __FUNCTION__, __LINE__));
+        return -1;
+    }
+    if ( !SSL_CTX_check_private_key(ctx) )
+    {
+        CcspTraceError(("(%s:%d) Error in verifying privat key with certificate file\n", __FUNCTION__, __LINE__));
+    }
+    CcspTraceInfo(("(%s:%d)Certificate & private key loaded successfully\n", __FUNCTION__, __LINE__));
+    return 0;
+}
 
 void tcp_server_thread(void *arg)
 {
@@ -58,9 +92,9 @@ void tcp_server_thread(void *arg)
     int c_fd = 0;
     int client_socket[MAX_TCP_CLIENTS];
     //char buffer[1025];  //data buffer of 1K
-
     payload_t buffer;
-
+    SSL_CTX *ctx = NULL;
+    SSL *ssl[MAX_TCP_CLIENTS] = {NULL};
     TcpServerThreadArgs *ta = arg;
     int port_no = ta->port;
     callback_recv rcv_cb = ta->cb;
@@ -82,6 +116,18 @@ void tcp_server_thread(void *arg)
         return 0;
     }
 
+    if (!ssl_lib_init) {
+        ssl_lib_init = true;
+        SSL_library_init();
+    }
+    if ((ctx = init_ctx()) == NULL) {
+        CcspTraceError(("(%s:%d) SSL ctx creation failed!!\n", __FUNCTION__, __LINE__));
+        return;
+    }
+    if (load_certificate(ctx) == -1) {
+        CcspTraceError(("(%s:%d) Can't use certificate now!!\n", __FUNCTION__, __LINE__));
+        return;
+    }
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = INADDR_ANY;
     servaddr.sin_port = htons(IDM_DEVICE_TCP_PORT);
@@ -142,10 +188,22 @@ void tcp_server_thread(void *arg)
                 }
             }
             //No space left to hold the new connection, if you want increase MAX_CLIENTS
-            if(c_fd !=0)
+            if(c_fd != 0)
             {
                 //close(c_fd);
                 CcspTraceInfo(("\nNo space left = %d\n", c_fd));
+            } else {
+                ssl[i] = SSL_new(ctx);
+                if (ssl[i] != NULL) {
+                    SSL_set_fd(ssl[i], client_socket[i]);
+                    if (SSL_accept(ssl[i]) <= 0) {
+                        CcspTraceError(("(%s:%d)SSL handshake failed\n", __FUNCTION__, __LINE__));
+                        break;
+                    }
+                } else {
+                    CcspTraceError(("(%s:%d) SSL session creation failed for client (%d)\n", __FUNCTION__, __LINE__, c_fd));
+                    break;
+                }
             }
         }
 
@@ -153,17 +211,27 @@ void tcp_server_thread(void *arg)
         for (i = 0; i < MAX_TCP_CLIENTS; i++)
         {
             sd = client_socket[i];
-
-            if (FD_ISSET( sd , &rset))
+            if (FD_ISSET(sd , &rset))
             {
+                int ret;
                 //Check if it was for closing , and also read the
                 //incoming message
-                if (read( sd , (void *)&buffer, sizeof(payload_t)) == 0)
+                memset((void *)&buffer, 0, sizeof(payload_t));
+                ret = SSL_read(ssl[i], (void *)&buffer, sizeof(payload_t));
+                if (ret <= 0)
                 {
-                    //Somebody disconnected
-                    //Close the socket and mark as 0 in list for reuse
-                    close( sd );
-                    client_socket[i] = 0;
+                    if (ret == 0)
+                    {
+                        //Somebody disconnected
+                        //Close the socket and mark as 0 in list for reuse
+                        CcspTraceInfo(("(%s:%d) Client socket(%d) closed\n", __FUNCTION__, __LINE__, sd));
+                        SSL_free(ssl[i]);
+                        ssl[i] = NULL;
+                        close(sd);
+                        client_socket[i] = 0;
+                    } else {
+                        CcspTraceError(("(%s:%d) SSL Read failed\n", __FUNCTION__, __LINE__));
+                    }
                 }
                 //Echo back the message that came in
                 else
@@ -171,13 +239,9 @@ void tcp_server_thread(void *arg)
                     connection_info_t client_info;
                     client_info.conn = sd;
                     rcv_cb(&client_info, (void *)&buffer);
-
                 }
-
-
             }
         }
-
     }
     pthread_exit(NULL);
 }
@@ -187,6 +251,7 @@ int open_remote_connection(connection_config_t* connectionConf, int (*connection
     CcspTraceInfo(("%s %d -  \n", __FUNCTION__, __LINE__));
     struct sockaddr_in servaddr;
     int client_sockfd;
+    bool enc_status = false;
 
     TcpServerThreadArgs ta = { rcv_message_cb,connectionConf->port};
     /* start tcp server */
@@ -194,7 +259,6 @@ int open_remote_connection(connection_config_t* connectionConf, int (*connection
     {
         pthread_t                server_thread;
         int                      iErrorCode     = 0;
-
 
         iErrorCode = pthread_create( &server_thread, NULL, &tcp_server_thread, &ta);
         if( 0 != iErrorCode )
@@ -208,7 +272,6 @@ int open_remote_connection(connection_config_t* connectionConf, int (*connection
             CcspTraceInfo(("%s %d - IDM tcp_server_thread Started Successfully\n", __FUNCTION__, __LINE__ ));
         }
     }
-
 
     client_sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (client_sockfd == -1)
@@ -238,23 +301,64 @@ int open_remote_connection(connection_config_t* connectionConf, int (*connection
     //TODO: check for dynamic allocation
     connection_info_t conn_info;
     conn_info.conn = client_sockfd;
-    connection_cb(connectionConf->device, &conn_info, 1);
+    conn_info.enc.ctx = NULL;
+    conn_info.enc.ssl = NULL;
+
+    // Client encryption
+    conn_info.enc.ssl = NULL;
+    if (!ssl_lib_init) {
+        ssl_lib_init = true;
+        SSL_library_init();
+    }
+    if ((conn_info.enc.ctx = init_ctx()) == NULL) {
+        CcspTraceError(("(%s:%d) SSL ctx creation failed!!\n", __FUNCTION__, __LINE__));
+        return -1;
+    }
+    if ((conn_info.enc.ssl = SSL_new(conn_info.enc.ctx)) == NULL) {
+        CcspTraceError(("(%s:%d) SSL session creation failed!!\n", __FUNCTION__, __LINE__));
+        return -1;
+    }
+    SSL_set_fd(conn_info.enc.ssl, client_sockfd);
+    if (SSL_connect(conn_info.enc.ssl) > 0) {
+        CcspTraceInfo(("Encryption status is set to true"));
+        enc_status = true;
+    }
+    else
+    {
+        CcspTraceInfo(("Encryption status is set to false"));
+    }
+    connection_cb(connectionConf->device, &conn_info, enc_status);
     return 0;
 }
 
 int send_remote_message(connection_info_t* conn_info,void *payload)
 {
-    if(send(conn_info->conn, payload, sizeof(payload_t), 0)<0)
-    {
-        CcspTraceError(("%s %d - send failed failed : %s\n",  __FUNCTION__, __LINE__, strerror(errno)));
-        return -1;
+    int val;
+    if (conn_info->enc.ctx != NULL && conn_info->enc.ssl != NULL) {
+        if ((val = SSL_write(conn_info->enc.ssl, payload, sizeof(payload_t))) > 0) {
+            return 0;
+        }
+        else
+        {
+            CcspTraceError(("(%s:%d) Data encryption failed (Err: %d)", __FUNCTION__, __LINE__, val));
+        }
     }
-    return 0;
+    else
+    {
+        CcspTraceError(("(%s:%d) SSL CTX is NULL, Data send failed\n", __FUNCTION__, __LINE__));
+    }
+    return -1;
 }
 
 int close_remote_connection(connection_info_t* conn_info)
 {
+    if (conn_info->enc.ssl != NULL) {
+        SSL_free(conn_info->enc.ssl);
+    }
     close(conn_info->conn);
+    if (conn_info->enc.ctx != NULL) {
+        SSL_CTX_free(conn_info->enc.ctx);
+    }
     CcspTraceInfo(("%s %d - socket closed\n", __FUNCTION__, __LINE__));
     return 1;
 }

@@ -155,6 +155,8 @@ int connection_cb(device_info_t* Device, connection_info_t* conn_info, uint encr
                 break;
             }
             remoteDevice->stRemoteDeviceInfo.conn_info.conn = conn_info->conn;
+	    remoteDevice->stRemoteDeviceInfo.conn_info.enc.ctx = conn_info->enc.ctx;
+            remoteDevice->stRemoteDeviceInfo.conn_info.enc.ssl = conn_info->enc.ssl;
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             CcspTraceInfo(("%s %d - sending Capabilities Request socket : %d\n", __FUNCTION__, __LINE__,remoteDevice->stRemoteDeviceInfo.conn_info.conn));
             IDM_sendMsg_to_Remote_device(&param);

@@ -37,6 +37,8 @@
 #define  _IDM_INTERNAL_H_
 
 #include "inter_device_manager_plugin_main_apis.h"
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
 #define  RDK_COMPONENT_ID_INTER_DEVICE_MANAGER                             "com.cisco.spvtg.ccsp.interdevicemanager"
 #define  RDK_COMPONENT_NAME_INTER_DEVICE_MANAGER                           "com.cisco.spvtg.ccsp.interdevicemanager"
@@ -86,6 +88,11 @@ typedef enum _IDM_REMOTE_DEVICE_STATUS
 IDM_REMOTE_DEVICE_STATUS;
 
 typedef struct {
+    SSL_CTX *ctx;
+    SSL *ssl;
+} ssl_info_t;
+
+typedef struct {
     char interface[32];
     uint  port;
     uint  discovery_interval;
@@ -106,6 +113,7 @@ typedef struct {
 
 typedef struct {
     int conn; //descriptor/sock
+    ssl_info_t enc; // Encryption info
 } connection_info_t;
 
 typedef  struct _IDM_REMOTE_DEVICE_INFO
