@@ -163,6 +163,12 @@ int connection_cb(device_info_t* Device, connection_info_t* conn_info, uint encr
 
             sleep(5);
         }
+        else
+        {
+            CcspTraceInfo(("%s %d - encryption_status failed\n", __FUNCTION__, __LINE__));
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            break;
+        }
     }
     return 0;
     

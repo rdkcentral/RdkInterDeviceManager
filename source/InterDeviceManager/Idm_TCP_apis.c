@@ -91,7 +91,7 @@ void tcp_server_thread(void *arg)
     int max_fd = 0;
     int c_fd = 0;
     int client_socket[MAX_TCP_CLIENTS];
-    //char buffer[1025];  //data buffer of 1K
+    int optval = 1;
     payload_t buffer;
     SSL_CTX *ctx = NULL;
     SSL *ssl[MAX_TCP_CLIENTS] = {NULL};
@@ -113,6 +113,13 @@ void tcp_server_thread(void *arg)
     {
         CcspTraceInfo(("\nIDM Server socket open failed\n"));
         rc = EINVAL;
+        return 0;
+    }
+
+    if( setsockopt(master_sock_fd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval , sizeof(int)) )
+    {
+        CcspTraceError(("server socket SO_REUSEADDR flag set failed : %s", strerror(errno)));
+        close(master_sock_fd);
         return 0;
     }
 
@@ -174,7 +181,6 @@ void tcp_server_thread(void *arg)
             c_fd = accept(master_sock_fd, NULL, NULL);
             if(c_fd < 0){
                 perror("idm : AF_INET accept failed");
-                break;
             }
             CcspTraceInfo(("New Client Connected Successfully with socket id  = %d\n", c_fd));
             //Save the new client FD in a vacant slot of client FD array
@@ -198,11 +204,9 @@ void tcp_server_thread(void *arg)
                     SSL_set_fd(ssl[i], client_socket[i]);
                     if (SSL_accept(ssl[i]) <= 0) {
                         CcspTraceError(("(%s:%d)SSL handshake failed\n", __FUNCTION__, __LINE__));
-                        break;
                     }
                 } else {
                     CcspTraceError(("(%s:%d) SSL session creation failed for client (%d)\n", __FUNCTION__, __LINE__, c_fd));
-                    break;
                 }
             }
         }
