@@ -41,7 +41,8 @@
 #define PSM_DEVICE_CAPABILITIES           "dmsb.interdevicemanager.Capabilities"
 #define PSM_DEVICE_HELLO_INTERVAL         "dmsb.interdevicemanager.HelloInterval"
 #define PSM_DEVICE_DETECION_WINDOW        "dmsb.interdevicemanager.DetectionWindow"
-#define PSM_DEVICE_PORT                   "dmsb.interdevicemanager.Port"
+#define PSM_DEVICE_PORT                   "dmsb.interdevicemanager.BroadcastPort"
+#define PSM_DEVICE_REMOTE_PORT            "dmsb.interdevicemanager.MessagingPort"
 
 
 typedef struct _WANMGR_CONFIG_DATA_

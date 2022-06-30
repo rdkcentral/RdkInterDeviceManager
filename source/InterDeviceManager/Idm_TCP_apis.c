@@ -35,7 +35,6 @@
 #include "Idm_TCP_apis.h"
 #include <openssl/ssl.h>
 #include <openssl/err.h>
-#define IDM_DEVICE_TCP_PORT 4444 //TODO: port no TBD
 #include "safec_lib_common.h"
 #define MAX_TCP_CLIENTS 30
 #define SSL_CERTIFICATE "/tmp/idm_xpki_cert"
@@ -140,7 +139,7 @@ void tcp_server_thread(void *arg)
 #endif
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = INADDR_ANY;
-    servaddr.sin_port = htons(IDM_DEVICE_TCP_PORT);
+    servaddr.sin_port = htons(port_no);
 
     rc = bind(master_sock_fd, (struct sockaddr *)&servaddr, sizeof(servaddr));
 
@@ -300,7 +299,7 @@ int open_remote_connection(connection_config_t* connectionConf, int (*connection
     bzero(&servaddr, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = inet_addr(connectionConf->device->ipv4_addr);
-    servaddr.sin_port = htons(IDM_DEVICE_TCP_PORT);
+    servaddr.sin_port = htons(connectionConf->port);
 
     CcspTraceInfo(("waiting to connect to the IDM server..\n"));
     while (1)

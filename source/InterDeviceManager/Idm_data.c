@@ -37,10 +37,10 @@
 #define DEFAULT_SUBNET_LIST "255.255.255.0"
 #define DEFAULT_HELLO_INTERVAL 10000 /* 10000 msec */
 #define DEFAULT_DETECTION_WINDOW 30000 /* 30000 msec */
-#define DEFAULT_BC_PORT 1234
 #define DEFAULT_BC_INTF "br403"
-#define DEFAULT_RM_PORT 4321
 #define DEFAULT_PSM_FILE "/usr/ccsp/config/bbhm_def_cfg.xml"
+#define IDM_DEFAULT_DEVICE_BROADCAST_PORT 50765 //TODO: port no TBD
+#define IDM_DEVICE_MESSAGING_PORT 4444 //TODO: port no TBD
 
 IDMMGR_CONFIG_DATA gpidmDmlInfo;
 
@@ -106,6 +106,17 @@ static int IdmMgr_get_IDM_ParametersFromPSM()
         _ansc_sscanf(param_value, "%d", &(pidmDmlInfo->stConnectionInfo.Port));
     }
 
+    _ansc_memset(param_name, 0, sizeof(param_name));
+    _ansc_memset(param_value, 0, sizeof(param_value));
+    _ansc_sprintf(param_name, PSM_DEVICE_REMOTE_PORT);
+
+    retPsmGet = IDM_RdkBus_GetParamValuesFromDB(param_name,param_value,sizeof(param_value));
+
+    if (retPsmGet == CCSP_SUCCESS)
+    {
+        _ansc_sscanf(param_value, "%d", &(pidmDmlInfo->stRemoteInfo.Port));
+    }
+
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
 
     return retPsmGet;
@@ -151,6 +162,11 @@ int IdmMgr_write_IDM_ParametersToPSM()
     _ansc_sprintf(param_value, "%d", pidmDmlInfo->stConnectionInfo.Port);
     retPsmGet = IDM_RdkBus_SetParamValuesToDB(param_name,param_value);
 
+    _ansc_memset(param_name, 0, sizeof(param_name));
+    _ansc_memset(param_value, 0, sizeof(param_value));
+    _ansc_sprintf(param_name, PSM_DEVICE_REMOTE_PORT);
+    _ansc_sprintf(param_value, "%d", pidmDmlInfo->stRemoteInfo.Port);
+    retPsmGet = IDM_RdkBus_SetParamValuesToDB(param_name,param_value);
 
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
 
@@ -189,10 +205,10 @@ void IdmMgr_SetConfigData_Default()
 
         strncpy(pidmDmlInfo->stConnectionInfo.Interface, DEFAULT_BC_INTF, sizeof(pidmDmlInfo->stConnectionInfo.Interface));
         pidmDmlInfo->stConnectionInfo.DetectionWindow = DEFAULT_DETECTION_WINDOW;
-        pidmDmlInfo->stConnectionInfo.Port = DEFAULT_BC_PORT;
+        pidmDmlInfo->stConnectionInfo.Port = IDM_DEFAULT_DEVICE_BROADCAST_PORT;
         // Initially the remote table will have a single entry with local device info
         pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries = 0;
-	pidmDmlInfo->stRemoteInfo.Port = DEFAULT_RM_PORT;
+        pidmDmlInfo->stRemoteInfo.Port = IDM_DEVICE_MESSAGING_PORT;
     }
 
 }

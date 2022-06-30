@@ -39,7 +39,6 @@
 #include "Idm_msg_process.h"
 
 #define DM_REMOTE_DEVICE_TABLE "Device.X_RDK_Remote.Device"
-#define IDM_DEFAULT_DEVICE_TCP_PORT 50765 //TODO: port no TBD
 #define DEFAULT_IDM_REQUEST_TIMEOUT 10
 
 #define SYSEVENT_FIREWALL_RESTART "firewall-restart"
@@ -330,7 +329,7 @@ void discovery_cb_thread(void *arg)
             connection_config_t connectionConf;
             memset(&connectionConf, 0, sizeof(connection_config_t));
             strncpy(connectionConf.interface, pidmDmlInfo->stConnectionInfo.Interface,sizeof(connectionConf.interface));
-            connectionConf.port = IDM_DEFAULT_DEVICE_TCP_PORT;
+            connectionConf.port = pidmDmlInfo->stRemoteInfo.Port;
             connectionConf.device = Device;
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             pidmDmlInfo = NULL;
@@ -395,7 +394,7 @@ void discovery_cb_thread(void *arg)
         connection_config_t connectionConf;
         memset(&connectionConf, 0, sizeof(connection_config_t));
         strncpy(connectionConf.interface, pidmDmlInfo->stConnectionInfo.Interface,sizeof(connectionConf.interface));
-        connectionConf.port = IDM_DEFAULT_DEVICE_TCP_PORT;
+        connectionConf.port = pidmDmlInfo->stRemoteInfo.Port;
         connectionConf.device = Device;
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         pidmDmlInfo = NULL;
@@ -428,7 +427,6 @@ void start_discovery_thread(void)
     memset (&discoveryConf, 0, sizeof(discovery_config_t));
 
     /* Update discovery_config deatils */
-    discoveryConf.port = IDM_DEFAULT_DEVICE_TCP_PORT;
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if(pidmDmlInfo != NULL)
     {
@@ -436,6 +434,7 @@ void start_discovery_thread(void)
 
         strncpy(discoveryConf.interface, pidmDmlInfo->stConnectionInfo.Interface,sizeof(discoveryConf.interface));
         discoveryConf.loss_detection_window = (pidmDmlInfo->stConnectionInfo.DetectionWindow /1000);//TODO: update
+        discoveryConf.port = pidmDmlInfo->stConnectionInfo.Port;
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     }
     platform_hal_GetBaseMacAddress(discoveryConf.base_mac);

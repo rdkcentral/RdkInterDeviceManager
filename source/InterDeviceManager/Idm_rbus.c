@@ -864,6 +864,7 @@ rbusError_t X_RDK_Remote_Device_SetHandler(rbusHandle_t handle, rbusProperty_t p
     }
     CcspTraceInfo(("%s %d - Device.X_RDK_Remote.Port updated to %d\n", __FUNCTION__, __LINE__, pidmDmlInfo->stRemoteInfo.Port));
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+    IdmMgr_write_IDM_ParametersToPSM();
     return RBUS_ERROR_SUCCESS;
 }
 #ifdef _HUB4_PRODUCT_REQ_
