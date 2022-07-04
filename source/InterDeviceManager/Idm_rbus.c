@@ -312,36 +312,48 @@ ANSC_STATUS Idm_PublishDmEvent(char *dm_event, void *dm_value, uint32_t wait_tim
     return ANSC_STATUS_SUCCESS;
 }
 
-ANSC_STATUS Idm_PublishNewDeviceEvent(uint32_t deviceIndex, char *capability, char *mac_addr)
+ANSC_STATUS Idm_PublishDeviceChangeEvent(IDM_DeviceChangeEvent * pDeviceChangeEvent)
 {
     rbusEvent_t event;
     rbusObject_t rdata;
     rbusValue_t value;
 
-    if(deviceIndex <= 1 || capability == NULL)
+    if(pDeviceChangeEvent == NULL || pDeviceChangeEvent->deviceIndex <= 1)
+    {
+        CcspTraceInfo(("%s %d: Invalid args\n", __FUNCTION__, __LINE__)); 
         return ANSC_STATUS_FAILURE;
+    }
+    CcspTraceInfo(("%s %d: Enter\n", __FUNCTION__, __LINE__));
 
     if(sidmRmSubStatus.idmRmNewDeviceSubscribed == FALSE)
     {
         CcspTraceInfo(("%s %d - New device sucbscription wait time excceded.......\n", __FUNCTION__, __LINE__));
         return ANSC_STATUS_FAILURE;
     }
-    
+
     rbusObject_Init(&rdata, NULL);
-    rbusValue_Init(&value);
-    rbusValue_SetString(value, capability);
-    rbusObject_SetValue(rdata, "Capabilities", value);
-    rbusValue_Release(value);
+    if (pDeviceChangeEvent->capability != NULL)
+    {
+        rbusValue_Init(&value);
+        rbusValue_SetString(value, pDeviceChangeEvent->capability);
+        rbusObject_SetValue(rdata, "Capabilities", value);
+        rbusValue_Release(value);
+    }
 
     rbusValue_Init(&value);
-    rbusValue_SetUInt32(value, deviceIndex);
+    rbusValue_SetUInt32(value, pDeviceChangeEvent->deviceIndex);
     rbusObject_SetValue(rdata, "Index", value);
     rbusValue_Release(value);
 
     /*set source mac */
     rbusValue_Init(&value);
-    rbusValue_SetString(value, mac_addr);
+    rbusValue_SetString(value, pDeviceChangeEvent->mac_addr);
     rbusObject_SetValue(rdata, "Mac_addr", value);
+    rbusValue_Release(value);
+
+    rbusValue_Init(&value);
+    rbusValue_SetBoolean(value, pDeviceChangeEvent->available);
+    rbusObject_SetValue(rdata, "available", value);
     rbusValue_Release(value);
 
 
@@ -797,86 +809,3 @@ rbusError_t X_RDK_Remote_Device_SetHandler(rbusHandle_t handle, rbusProperty_t p
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return RBUS_ERROR_SUCCESS;
 }
-
-/**************************************Test code*************************/
-/* TODO : Remove once tested */
-#ifdef TEST_RBUS_EVENT
-// This block is just for testing purpose.
-// for each 1 minute new device will be found and published
-void *Idm_PublishEvent(void *data) {
-
-    uint32_t index = 1, i =0;
-    char capability[512] = { 0 }, test_event[512] = { 0 };
-    int my_status = DEVICE_CONNECTED, my_interval = 10;
-    CcspTraceInfo(("%s %d - pthread running!\n", __FUNCTION__, __LINE__, index ));
-    // add 10 devices
-    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
-    while(i <= 10)
-    {
-        CcspTraceInfo(("%s %d - Pusblished event Device.X_RDK_Remote.Device.3.Status value %d!\n", __FUNCTION__, __LINE__,my_status));
-        i++;
-        IDM_REMOTE_DEVICE_LINK_INFO *newNode = (IDM_REMOTE_DEVICE_LINK_INFO*)AnscAllocateMemory(sizeof(IDM_REMOTE_DEVICE_LINK_INFO));
-        CcspTraceInfo(("%s %d - Adding device\n", __FUNCTION__, __LINE__));
-        if(newNode == NULL)
-            break;
-        newNode->stRemoteDeviceInfo.Status = DEVICE_CONNECTED;
-        pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries++;
-        newNode->stRemoteDeviceInfo.Index = pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries;
-        // add new device in object
-        addDevice(newNode);
-        CcspTraceInfo(("%s %d - Adding row number %d\n", __FUNCTION__, __LINE__,
-                            pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries));
-        // add row for table
-        rbusTable_registerRow(rbusHandle, DM_REMOTE_DEVICE_TABLE, 
-                        pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries, NULL);
-        
-        Idm_PublishNewDeviceEvent(pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries, "Hub,Modem",120);
-        sleep(1);
-        // publish the new device's individual parameters if required
-        sprintf(test_event, "Device.X_RDK_Remote.Device.%d.Status",pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries);
-        Idm_PublishDmEvent(test_event, &my_status, 120);
-        sprintf(test_event, "Device.X_RDK_Remote.Device.%d.MAC",pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries);
-        Idm_PublishDmEvent(test_event, "A0:BD:CD:FF:75:31", 120);
-        sprintf(test_event, "Device.X_RDK_Remote.Device.%d.HelloInterval",pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries);
-        Idm_PublishDmEvent(test_event, &my_interval, 120);
-        sprintf(test_event, "Device.X_RDK_Remote.Device.%d.IPv4",pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries);
-        Idm_PublishDmEvent(test_event, "192.168.0.1", 120);
-        sprintf(test_event, "Device.X_RDK_Remote.Device.%d.IPv6",pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries);
-        Idm_PublishDmEvent(test_event, "fe80::8c7d:f2ff:fe7c:f2dc", 120);
-        sprintf(test_event, "Device.X_RDK_Remote.Device.%d.Capabilities",pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries);
-        Idm_PublishDmEvent(test_event, "Modem,IoT,NFC", 120);
-        sprintf(test_event, "Device.X_RDK_Remote.Device.%d.ModelNumber",pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries);
-        Idm_PublishDmEvent(test_event, "ADA2.2", 120);
-        sleep(30);
-    }
-    //update status of 3 and 4 devices
-    CcspTraceInfo(("%s %d - updating  devices\n", __FUNCTION__, __LINE__));
-    // update in object
-    updateDeviceStatus(pidmDmlInfo, 3 , DEVICE_NOT_DETECTED);
-    my_status = DEVICE_NOT_DETECTED;
-    Idm_PublishDmEvent("Device.X_RDK_Remote.Device.3.Status", &my_status, 120);
-    //update status in object
-    updateDeviceStatus(pidmDmlInfo, 4 , DEVICE_AUTHENTICATED);
-    my_status = DEVICE_AUTHENTICATED;
-    // publish to wan manager
-    Idm_PublishDmEvent("Device.X_RDK_Remote.Device.4.Status", &my_status, 120);
-    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
-    while(1);
-}
-
-void Idm_RunEventTest()
-{
-    pthread_attr_t pattr;
-    pthread_attr_t *pattrp = NULL;
-    pthread_t p_id;
-
-    pattrp = &pattr;
-    pthread_attr_init(&pattr);
-    pthread_attr_setdetachstate( &pattr, PTHREAD_CREATE_DETACHED );
-    if (pthread_create(&p_id, pattrp, Idm_PublishEvent, NULL) != 0) {
-        if(pattrp != NULL) {
-            pthread_attr_destroy( pattrp );
-        }
-    }
-}
-#endif

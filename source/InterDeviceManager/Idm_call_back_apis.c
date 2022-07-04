@@ -108,7 +108,14 @@ void Capabilities_get_cb(IDM_REMOTE_DEVICE_INFO *device, ANSC_STATUS status ,cha
                 strncpy(remoteDevice->stRemoteDeviceInfo.Capabilities,device->Capabilities, sizeof(remoteDevice->stRemoteDeviceInfo.Capabilities));
                 strncpy(remoteDevice->stRemoteDeviceInfo.ModelNumber,device->ModelNumber, sizeof(remoteDevice->stRemoteDeviceInfo.ModelNumber));
                 remoteDevice->stRemoteDeviceInfo.HelloInterval = device->HelloInterval;
-                Idm_PublishNewDeviceEvent(remoteDevice->stRemoteDeviceInfo.Index, remoteDevice->stRemoteDeviceInfo.Capabilities, remoteDevice->stRemoteDeviceInfo.MAC);
+
+                IDM_DeviceChangeEvent DeviceChangeEvent;
+                memset(&DeviceChangeEvent, 0, sizeof(IDM_DeviceChangeEvent));
+                DeviceChangeEvent.deviceIndex = remoteDevice->stRemoteDeviceInfo.Index;
+                DeviceChangeEvent.capability = remoteDevice->stRemoteDeviceInfo.Capabilities;
+                DeviceChangeEvent.mac_addr = remoteDevice->stRemoteDeviceInfo.MAC;
+            DeviceChangeEvent.available = true;
+                Idm_PublishDeviceChangeEvent(&DeviceChangeEvent);
                 break;
             }
             remoteDevice=remoteDevice->next;
@@ -255,6 +262,13 @@ void discovery_cb_thread(void *arg)
                     close_remote_connection(&remoteDevice->stRemoteDeviceInfo.conn_info);
                 }
                 remoteDevice->stRemoteDeviceInfo.conn_info.conn = 0;
+
+                IDM_DeviceChangeEvent DeviceChangeEvent;
+                memset(&DeviceChangeEvent, 0, sizeof(IDM_DeviceChangeEvent));
+                DeviceChangeEvent.deviceIndex = remoteDevice->stRemoteDeviceInfo.Index;
+                DeviceChangeEvent.mac_addr = remoteDevice->stRemoteDeviceInfo.MAC;
+                DeviceChangeEvent.available = false;
+                Idm_PublishDeviceChangeEvent(&DeviceChangeEvent);
                 break;
             }
 
