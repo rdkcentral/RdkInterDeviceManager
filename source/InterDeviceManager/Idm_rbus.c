@@ -515,7 +515,7 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
 
     if(strcmp(methodName, "Device.X_RDK_Remote.AddDeviceCapabilities()") == 0)
     {
-        const char *str = NULL;
+        char *str = NULL;
         uint32_t len = 0;
 
         rbusValue_t value = rbusObject_GetValue(inParams, NULL );
@@ -524,7 +524,7 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
 
         indexNode = getRmDeviceNode(pidmDmlInfo, 1);
 
-        if(!indexNode)
+        if(!indexNode || (strlen(str) < 0))
         {
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_BUS_ERROR;
@@ -532,38 +532,56 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
     
         if(!strstr(indexNode->stRemoteDeviceInfo.Capabilities, str))
         {
+            if (strlen(indexNode->stRemoteDeviceInfo.Capabilities) > 0)
+            {
+                strcat(indexNode->stRemoteDeviceInfo.Capabilities, ",");
+            }
             strcat(indexNode->stRemoteDeviceInfo.Capabilities, str);        
         }
+        CcspTraceInfo(("%s %d: DeviceCapabilities str = %s\n", __FUNCTION__, __LINE__, indexNode->stRemoteDeviceInfo.Capabilities));
         
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         return RBUS_ERROR_SUCCESS;
     }
     else if(strcmp(methodName, "Device.X_RDK_Remote.RemoveDeviceCapabilities()") == 0)
     {
-        const char *str = NULL;
+        const char *out = NULL;
         char *capPos = NULL;
         uint32_t len = 0;
 
         rbusValue_t value = rbusObject_GetValue(inParams, NULL );
-        str = rbusValue_GetString(value, &len);
+        out = rbusValue_GetString(value, &len);
 
         indexNode = getRmDeviceNode(pidmDmlInfo, 1);
 
-        if(!indexNode)
+        if(!indexNode || len < 0)
         {
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_BUS_ERROR;
         }
 
-        if(len)
+        char * arr = indexNode->stRemoteDeviceInfo.Capabilities;
+
+        capPos = strstr(arr, out);
+        if(capPos)
         {
-            capPos = strstr(indexNode->stRemoteDeviceInfo.Capabilities, str);
-            if(capPos)
+            if (*(capPos + strlen(out)) == '\0')
             {
+                // removing last capability, so set null char
                 *capPos = '\0';
-                strcat(indexNode->stRemoteDeviceInfo.Capabilities, capPos + len);
+                if (strlen(arr) > 0)
+                {
+                    // removing last ; char
+                    *(capPos - 1) = '\0';
             }
+                CcspTraceInfo(("%s %d: AddDeviceCapabilities str = %s\n", __FUNCTION__, __LINE__, indexNode->stRemoteDeviceInfo.Capabilities));
+                IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+                return RBUS_ERROR_SUCCESS;
+            }
+            strcpy(capPos, capPos + (strlen(out) + 1));
         }
+
+        CcspTraceInfo(("%s %d: DeviceCapabilities str = %s\n", __FUNCTION__, __LINE__, indexNode->stRemoteDeviceInfo.Capabilities));
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         return RBUS_ERROR_SUCCESS;
     }
