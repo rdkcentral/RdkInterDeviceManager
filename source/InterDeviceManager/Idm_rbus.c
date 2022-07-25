@@ -64,6 +64,8 @@
 #define DM_REMOTE_DEVICE_RESET_CAP "Device.X_RDK_Remote.ResetDeviceCapabilities()"
 #define DM_REMOTE_DEVICE_INVOKE "Device.X_RDK_Remote.Invoke()"
 
+#define DM_REMOTE_DEVICE_GET_FILE "Device.X_RDK_Remote.getFile()"
+#define DM_REMOTE_DEVICE_SEND_FILE "Device.X_RDK_Remote.sendFile()"
 #define RM_PORT "Device.X_RDK_Remote.Port"
 
 rbusHandle_t        rbusHandle;
@@ -102,7 +104,9 @@ rbusDataElement_t idmRmCapElements[] = {
         {DM_REMOTE_DEVICE_ADD_CAP, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
         {DM_REMOTE_DEVICE_REM_CAP, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
         {DM_REMOTE_DEVICE_RESET_CAP, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
-	{DM_REMOTE_DEVICE_INVOKE, RBUS_ELEMENT_TYPE_METHOD | RBUS_ELEMENT_TYPE_EVENT, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}}
+        {DM_REMOTE_DEVICE_GET_FILE, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
+        {DM_REMOTE_DEVICE_SEND_FILE, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
+        {DM_REMOTE_DEVICE_INVOKE, RBUS_ELEMENT_TYPE_METHOD | RBUS_ELEMENT_TYPE_EVENT, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}}
     };
 
 ANSC_STATUS Idm_Create_Rbus_Obj()
@@ -608,7 +612,7 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
     }
     else if(strcmp(methodName, "Device.X_RDK_Remote.ResetDeviceCapabilities()") == 0)
     {
-         const char *str = NULL;
+        const char *str = NULL;
         uint32_t len = 0;
 
         rbusValue_t value = rbusObject_GetValue(inParams, NULL );
@@ -673,10 +677,52 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
 
         //TODO: Check possibility to make subscription request as synchronous call.
         param.resCb = asyncHandle;
- 
+
         IDM_sendMsg_to_Remote_device(&param);
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         return RBUS_ERROR_ASYNC_RESPONSE;
+    }
+    else if(strcmp(methodName, "Device.X_RDK_Remote.sendFile()") == 0 )
+    {
+        char *mac_dest = NULL;
+        char *filename = NULL;
+        char *output_location = NULL;
+        rbusValue_t value;
+
+        value = rbusObject_GetValue(inParams, "MacAddr");
+        mac_dest = (char*)rbusValue_GetString(value,NULL);
+
+        value = rbusObject_GetValue(inParams, "FileName");
+        filename = (char*)rbusValue_GetString(value,NULL);
+
+        value = rbusObject_GetValue(inParams, "OutputFile");
+        output_location  = (char*)rbusValue_GetString(value,NULL);
+
+        CcspTraceInfo(("Inside %s:%d dest mac = %s filename = %s output file location = %s\n",__FUNCTION__,__LINE__,mac_dest,filename,output_location));
+        IDM_sendFile_to_Remote_device(mac_dest,filename,output_location);
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+        return RBUS_ERROR_SUCCESS;
+    }
+    else if(strcmp(methodName, "Device.X_RDK_Remote.getFile()") == 0 )
+    {
+        char *mac_dest = NULL;
+        char *filename = NULL;
+        char *output_location = NULL;
+        rbusValue_t value;
+
+        value = rbusObject_GetValue(inParams, "MacAddr");
+        mac_dest = (char*)rbusValue_GetString(value,NULL);
+
+        value = rbusObject_GetValue(inParams, "FileName");
+        filename = (char*)rbusValue_GetString(value,NULL);
+
+        value = rbusObject_GetValue(inParams, "OutputFile");
+        output_location  = (char*)rbusValue_GetString(value,NULL);
+
+        CcspTraceInfo(("Inside %s:%d dest mac=%s filename=%s output file location = %s\n",__FUNCTION__,__LINE__,mac_dest,filename,output_location));
+        IDM_getFile_from_Remote_device(mac_dest,filename,output_location);
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+        return RBUS_ERROR_SUCCESS;
     }
     else
     {

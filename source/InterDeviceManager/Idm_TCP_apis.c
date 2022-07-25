@@ -36,6 +36,7 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #define IDM_DEVICE_TCP_PORT 4444 //TODO: port no TBD
+#include "safec_lib_common.h"
 #define MAX_TCP_CLIENTS 30
 #define SSL_CERTIFICATE "/tmp/idm_xpki_cert"
 #define SSL_KEY         "/tmp/idm_xpki_key"
@@ -251,6 +252,9 @@ void tcp_server_thread(void *arg)
                 {
                     connection_info_t client_info;
                     client_info.conn = sd;
+#ifndef IDM_DEBUG
+                    client_info.enc.ssl = ssl[i];
+#endif
                     rcv_cb(&client_info, (void *)&buffer);
                 }
             }
@@ -349,6 +353,186 @@ int open_remote_connection(connection_config_t* connectionConf, int (*connection
     return 0;
 }
 
+int getFile_to_remote(connection_info_t* conn_info,void *payload)
+{
+    CcspTraceDebug(("Inside %s:%d\n",__FUNCTION__,__LINE__));
+    FILE* fptr;
+    payload_t *Data;
+    char* buffer;
+    int bytes = 0;
+    size_t length;
+
+    Data = (payload_t*)payload;
+    fptr = fopen(Data->param_name,"rb");
+    CcspTraceInfo(("Inside %s:%d file name=%s\n",__FUNCTION__,__LINE__,Data->param_name));
+    if(!fptr)
+    {
+        CcspTraceError(("%s:%d file not present\n",__FUNCTION__,__LINE__));
+        return -1;
+    }
+    fseek (fptr, 0, SEEK_END);
+    length = ftell (fptr);
+    CcspTraceDebug(("length of the file=%zu\n",length));
+    fseek (fptr, 0, SEEK_SET);
+    buffer = (char*)malloc (256);
+    memset(buffer,0,256);
+    if(buffer){
+        sprintf(buffer,"%zu",length);
+        strncpy_s(Data->param_value,sizeof(Data->param_value),buffer,strlen(buffer));
+#ifndef IDM_DEBUG
+        if(conn_info->enc.ssl == NULL){
+            CcspTraceError(("(%s:%d) SSL CTX is NULL, Data send failed\n", __FUNCTION__, __LINE__));
+            return -1;
+        }
+        if ((bytes = SSL_write(conn_info->enc.ssl, Data, sizeof(payload_t))) > 0)
+        {
+            free(buffer);
+            buffer =(char*)malloc (length);
+            fread (buffer, 1, length, fptr);
+            if((bytes = SSL_write(conn_info->enc.ssl, buffer,length)) <= 0)
+            {
+                CcspTraceError(("file data is not transformed\n"));
+            }
+            CcspTraceDebug(("bytes written = %d and length=%d\n",bytes,(int)length));
+        }
+        else
+        {
+            CcspTraceError(("length data is not transformed\n"));
+        }
+#else
+        if(send(conn_info->conn, Data, sizeof(payload_t), 0)<0){
+            CcspTraceError(("%s %d - send failed failed : %s\n",  __FUNCTION__, __LINE__, strerror(errno)));
+            return -1;
+        }
+        free(buffer);
+        buffer =(char*)malloc (length);
+        fread (buffer, 1, length, fptr);
+        if((bytes = send(conn_info->conn, buffer,length,0))<=0){
+            CcspTraceError(("file data is not transformed through send\n"));
+        }
+        CcspTraceDebug(("bytes written = %d and length=%d through send\n",bytes,(int)length));
+#endif
+    }
+    if(buffer)
+    {
+        free(buffer);
+    }
+    fclose(fptr);
+    return 0;
+}
+
+int sendFile_to_remote(connection_info_t* conn_info,void *payload,char* output_location)
+{
+    CcspTraceDebug(("Inside %s %d\n",__FUNCTION__,__LINE__));
+    char* buffer;
+    FILE* fptr;
+    size_t length;
+    payload_t *Data;
+    int retry = 0,bytes = 0,push_start = 0,rc=-1,ind=-1;
+    Data = (payload_t*)payload;
+    fptr = fopen(Data->param_name,"rb");
+    CcspTraceInfo(("Inside %s:%d file name=%s\n",__FUNCTION__,__LINE__,Data->param_name));
+    if(!fptr)
+    {
+        CcspTraceError(("%s:%d file not present\n",__FUNCTION__,__LINE__));
+        return -1;
+    }
+    fseek (fptr, 0, SEEK_END);
+    length = ftell (fptr);
+    CcspTraceDebug(("length of the file=%zu\n",length));
+    fseek (fptr, 0, SEEK_SET);
+    buffer = (char*)malloc (256);
+    memset(buffer,0,256);
+    if(buffer)
+    {
+        sprintf(buffer,"%zu",length);
+        strncpy_s(Data->param_value,sizeof(Data->param_value),buffer,strlen(buffer));
+        strcpy_s(Data->param_name,sizeof(Data->param_name),output_location);
+        CcspTraceInfo(("%s:%d output file name = %s\n",__FUNCTION__,__LINE__,Data->param_name));
+#ifndef IDM_DEBUG
+        if (conn_info->enc.ctx != NULL && conn_info->enc.ssl != NULL)
+        {
+            if ((bytes = SSL_write(conn_info->enc.ssl, Data, sizeof(payload_t))) > 0)
+            {
+                push_start=1;
+            }
+            else
+            {
+                CcspTraceError(("%s:%d length and file data is not transformed\n",__FUNCTION__,__LINE__));
+                return -1;
+            }
+        }
+        else
+        {
+            CcspTraceError(("%s:%d ssl session is null\n",__FUNCTION__,__LINE__));
+            return -1;
+        }
+#else
+        if(send(conn_info->conn, Data,sizeof(payload_t), 0) > 0)
+        {
+            push_start=1;
+        }
+        else
+        {
+            CcspTraceError(("%s %d - send failed failed : %s\n",  __FUNCTION__, __LINE__, strerror(errno)));
+            return -1;
+        }
+#endif
+start:
+        if(push_start == 1 && length > 0)
+        {
+            free(buffer);
+            buffer =(char*)malloc(strlen("not found")+1);
+#ifndef IDM_DEBUG
+            bytes = SSL_read(conn_info->enc.ssl, buffer,strlen("not found"));
+#else
+            bytes = read( conn_info->conn , buffer, strlen("not found"));
+#endif
+            CcspTraceDebug(("%s:%d buffer=%s\n",__FUNCTION__,__LINE__,buffer));
+            rc = strcmp_s("start",strlen("start"),buffer,&ind);
+            ERR_CHK(rc);
+            if((!ind) && (rc == EOK))
+            {
+                free(buffer);
+                buffer =(char*)malloc(length);
+                fread (buffer, 1, length, fptr);
+#ifndef IDM_DEBUG
+                if((bytes = SSL_write(conn_info->enc.ssl, buffer,length)) <= 0)
+                {
+                    CcspTraceError(("file data is not transformed\n"));
+                }
+#else
+                if (( bytes = send(conn_info->conn,buffer,length,0) ) <= 0 )
+                {
+                    CcspTraceError(("file data is not transformed\n"));
+                }
+#endif
+                CcspTraceDebug(("bytes written = %d and length=%d\n",bytes,(int)length));
+            }
+            else
+            {
+                rc = strcmp_s("not found",strlen("not found"),buffer,&ind);
+                ERR_CHK(rc);
+                if((!ind) && (rc == EOK))
+                {
+                    CcspTraceError(("not able to create destination file in the peer device\n"));
+                    return -1;
+                }
+                CcspTraceInfo(("peer device does not given acknowledge so retry for 30 times\n"));
+                if(retry < 30)
+                {
+                    retry++;
+                    goto start;
+                }
+                else if(retry == 30)
+                {
+                    return -1;
+                }
+            }
+        }
+    }
+    return 0;
+}
 int send_remote_message(connection_info_t* conn_info,void *payload)
 {
 #ifndef IDM_DEBUG

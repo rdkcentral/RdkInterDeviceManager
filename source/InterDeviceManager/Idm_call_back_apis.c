@@ -57,7 +57,7 @@ extern token_t sysevent_token;
 extern IDM_RBUS_SUBS_STATUS sidmRmSubStatus;
 
 void discovery_cb_thread(void *arg);
-
+void IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t * payload);
 int rcv_message_cb( connection_info_t* conn_info, void *payload)
 {
     CcspTraceInfo(("%s %d - \n", __FUNCTION__, __LINE__));
@@ -69,6 +69,14 @@ int rcv_message_cb( connection_info_t* conn_info, void *payload)
     }else if(recvData->msgType == RES)
     {
         IDM_Incoming_Response_handler(recvData);
+    }
+    else if(recvData->msgType == SFT)
+    {
+        IDM_SFT_receive(conn_info,recvData);
+    }
+    else if(recvData->msgType == GFT)
+    {
+        IDM_Incoming_FT_Response(conn_info,recvData);
     }
     return 0;
 }
@@ -112,7 +120,7 @@ void Capabilities_get_cb(IDM_REMOTE_DEVICE_INFO *device, ANSC_STATUS status ,cha
                 DeviceChangeEvent.deviceIndex = remoteDevice->stRemoteDeviceInfo.Index;
                 DeviceChangeEvent.capability = remoteDevice->stRemoteDeviceInfo.Capabilities;
                 DeviceChangeEvent.mac_addr = remoteDevice->stRemoteDeviceInfo.MAC;
-            DeviceChangeEvent.available = true;
+                DeviceChangeEvent.available = true;
                 Idm_PublishDeviceChangeEvent(&DeviceChangeEvent);
 
                 //Publish MAC Event
@@ -219,7 +227,7 @@ int discovery_cb(device_info_t* Device, uint discovery_status, uint authenticati
     {
         return  -1;
     }
-
+    CcspTraceInfo(("IPv4=%s IPv6=%s MAC=%s\n",Device->ipv4_addr,Device->ipv6_addr,Device->mac_addr));
     if(strncasecmp(Device->mac_addr, pidmDmlInfo->stRemoteInfo.pstDeviceLink->stRemoteDeviceInfo.MAC, MAC_ADDR_SIZE )==0)
     {
         CcspTraceInfo(("%s %d -detected local device, don't add to remote device list\n", __FUNCTION__, __LINE__));
@@ -234,7 +242,7 @@ int discovery_cb(device_info_t* Device, uint discovery_status, uint authenticati
     Discovery_cb_threadargs *threadArgs = malloc(sizeof(Discovery_cb_threadargs));
     strncpy(threadArgs->device.mac_addr, Device->mac_addr, MAC_ADDR_SIZE);
     strncpy(threadArgs->device.ipv4_addr, Device->ipv4_addr, IPv4_ADDR_SIZE);
-    strncpy(threadArgs->device.ipv6_addr, Device->ipv6_addr, IPv6_ADDR_SIZE); 
+    strncpy(threadArgs->device.ipv6_addr, Device->ipv6_addr, IPv6_ADDR_SIZE);
     threadArgs->discovery_status = discovery_status;
     threadArgs->auth_status = authentication_status;
 
@@ -318,7 +326,6 @@ void discovery_cb_thread(void *arg)
 
             strncpy(remoteDevice->stRemoteDeviceInfo.IPv4, Device->ipv4_addr, IPv4_ADDR_SIZE);
             strncpy(remoteDevice->stRemoteDeviceInfo.IPv6, Device->ipv6_addr, IPv6_ADDR_SIZE);
-
             /* Create link */
             connection_config_t connectionConf;
             memset(&connectionConf, 0, sizeof(connection_config_t));
@@ -365,6 +372,7 @@ void discovery_cb_thread(void *arg)
         strncpy(newNode->stRemoteDeviceInfo.MAC, Device->mac_addr, MAC_ADDR_SIZE);
         strncpy(newNode->stRemoteDeviceInfo.IPv4, Device->ipv4_addr, IPv4_ADDR_SIZE);
         strncpy(newNode->stRemoteDeviceInfo.IPv6, Device->ipv6_addr, IPv6_ADDR_SIZE);
+
         newNode->stRemoteDeviceInfo.conn_info.conn = 0;
 
         if(addDevice(newNode) == ANSC_STATUS_SUCCESS)

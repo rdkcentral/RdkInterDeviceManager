@@ -45,8 +45,9 @@ typedef  struct _sendReqList
     char Mac_dest[MAC_ADDR_SIZE];
     rbusMethodAsyncHandle_t resCb;
     uint timeout;
+    char output_location[LOC_SIZE];
     struct _sendReqList *next;
-}sendReqList; 
+}sendReqList;
 
 typedef enum _IDM_MSG_OPERATION
 {
@@ -54,14 +55,15 @@ typedef enum _IDM_MSG_OPERATION
     GET,
     IDM_SUBS,
     IDM_REQUEST,
-
+    GFT,
+    SFT
 }IDM_MSG_OPERATION;
 
 typedef enum _IDM_MSG_TYPE
 {
     REQ = 1,
     RES,
-
+    REQ_FT,
 }IDM_MSG_TYPE;
 
 typedef struct _idm_send_msg_Params

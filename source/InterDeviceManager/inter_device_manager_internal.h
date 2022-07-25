@@ -57,6 +57,7 @@
 #define MAC_ADDR_SIZE 18
 #define IPv4_ADDR_SIZE 16
 #define IPv6_ADDR_SIZE 128
+#define LOC_SIZE 128
 
 typedef  struct
 _COMPONENT_COMMON_INTER_DEVICE_MANAGER
