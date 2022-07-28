@@ -19,7 +19,7 @@
 [Unit]
 Description=RDK InterDeviceManager service
 
-After=PsmSsp.service network-online.target rdkssainit.service
+After=PsmSsp.service network-online.target rdkssainit.service utopia.service
 
 
 [Service]
