@@ -64,7 +64,6 @@
 #define DM_REMOTE_DEVICE_RESET_CAP "Device.X_RDK_Remote.ResetDeviceCapabilities()"
 #define DM_REMOTE_DEVICE_INVOKE "Device.X_RDK_Remote.Invoke()"
 
-#define RM_NUM_ENTRIES "Device.X_RDK_Remote.DeviceNumberOfEntries"
 #define RM_PORT "Device.X_RDK_Remote.Port"
 
 rbusHandle_t        rbusHandle;
@@ -254,7 +253,7 @@ rbusError_t idmDmPublishEventHandler(rbusHandle_t handle, rbusEventSubAction_t a
 }
 
 //IDM manager should call when it has remote device data
-ANSC_STATUS Idm_PublishDmEvent(char *dm_event, void *dm_value, uint32_t wait_time)
+ANSC_STATUS Idm_PublishDmEvent(char *dm_event, void *dm_value)
 {
     rbusEvent_t event;
     rbusObject_t rdata;
@@ -265,15 +264,6 @@ ANSC_STATUS Idm_PublishDmEvent(char *dm_event, void *dm_value, uint32_t wait_tim
     {
         CcspTraceInfo(("%s %d - Failed publishing\n", __FUNCTION__, __LINE__));
         return ANSC_STATUS_FAILURE;
-    }
-
-    while(timeout < wait_time)
-    {
-        timeout ++;
-        sleep(1);
-        CcspTraceInfo(("%s %d - Waiting for subscription %s.......\n", __FUNCTION__, __LINE__,dm_event));
-        if(sidmRmSubStatus.idmRmStatusSubscribed == TRUE)
-            break;
     }
 
     rbusValue_Init(&value);
@@ -294,6 +284,9 @@ ANSC_STATUS Idm_PublishDmEvent(char *dm_event, void *dm_value, uint32_t wait_tim
             break;
         case EV_STRING:
             rbusValue_SetString(value, (char*)dm_value);
+            break;
+        case EV_UNSIGNEDINT:
+            rbusValue_SetUInt32(value, (*(unsigned int*)(dm_value)));
             break;
         default:
             CcspTraceInfo(("%s %d - Cannot identify event type %d\n", __FUNCTION__, __LINE__, type));

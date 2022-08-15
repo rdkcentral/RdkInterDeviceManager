@@ -41,7 +41,8 @@ typedef enum _EVENT_DATA_TYPES
 {
     EV_BOOLEAN = 1,
     EV_INTEGER,
-    EV_STRING
+    EV_STRING,
+    EV_UNSIGNEDINT
 
 }EVENT_DATA_TYPES;
 

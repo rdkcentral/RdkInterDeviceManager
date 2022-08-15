@@ -146,6 +146,9 @@ EVENT_DATA_TYPES getEventType(char *event)
 {
     if(event != NULL)
     {
+        if(0 == strcmp(RM_NUM_ENTRIES, event))
+            return EV_UNSIGNEDINT;
+
         if(strstr(event, ".MAC") || strstr(event, ".IPv4") || strstr(event, ".IPv6") || 
                 strstr(event, ".Capabilities") || strstr(event, ".ModelNumber"))
             return EV_STRING;
@@ -201,6 +204,8 @@ ANSC_STATUS updteSubscriptionStatus(char *event, IDM_RBUS_SUBS_STATUS *sidmRmSub
         sidmRmSubStatus->idmRmModelNumSubscribed = TRUE;
     else if(strcmp(event, "Device.X_RDK_Remote.DeviceChange") == 0)
         sidmRmSubStatus->idmRmNewDeviceSubscribed = TRUE;
+    else if(strcmp(event, RM_NUM_ENTRIES) == 0)
+        sidmRmSubStatus->idmRmDeviceNoofEntriesSubscribed = TRUE;
     else
     {
         CcspTraceInfo(("%s %d - Failed to update subscripton status for %s\n", __FUNCTION__, __LINE__, event));

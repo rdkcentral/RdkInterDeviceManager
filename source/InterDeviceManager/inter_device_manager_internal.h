@@ -191,6 +191,7 @@ typedef struct _IDM_RBUS_SUBS_STATUS
     bool idmRmCapSubscribed;
     bool idmRmModelNumSubscribed;
     bool idmRmNewDeviceSubscribed;
+    bool idmRmDeviceNoofEntriesSubscribed;
 
 }IDM_RBUS_SUBS_STATUS;
 

@@ -51,6 +51,13 @@
 #include "Idm_utils.h"
 #include "ccsp_base_api.h"
 
+#define RM_NUM_ENTRIES "Device.X_RDK_Remote.DeviceNumberOfEntries"
+
+//Publish Parameters
+#define DM_PUBLISH_REMOTE_DEVICE_STATUS "Device.X_RDK_Remote.Device.%d.Status"
+#define DM_PUBLISH_REMOTE_DEVICE_CAP "Device.X_RDK_Remote.Device.%d.Capabilities"
+#define DM_PUBLISH_REMOTE_DEVICE_MAC "Device.X_RDK_Remote.Device.%d.MAC"
+
 typedef struct _DeviceChangeEvent {
     uint32_t     deviceIndex;
     char*        capability;
@@ -66,7 +73,7 @@ rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, co
 
 rbusError_t X_RDK_Connection_GetHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
 
-ANSC_STATUS Idm_PublishDmEvent(char *dm_event, void *dm_value, uint32_t waitTime);
+ANSC_STATUS Idm_PublishDmEvent(char *dm_event, void *dm_value);
 
 ANSC_STATUS Idm_PublishDeviceChangeEvent(IDM_DeviceChangeEvent * pDeviceChangeEvent);
 

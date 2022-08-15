@@ -54,6 +54,7 @@ typedef struct discovery_cb_threadargs
 extern rbusHandle_t        rbusHandle;
 extern int sysevent_fd;
 extern token_t sysevent_token;
+extern IDM_RBUS_SUBS_STATUS sidmRmSubStatus;
 
 void discovery_cb_thread(void *arg);
 
@@ -93,8 +94,15 @@ void Capabilities_get_cb(IDM_REMOTE_DEVICE_INFO *device, ANSC_STATUS status ,cha
         {
             if(strncasecmp(remoteDevice->stRemoteDeviceInfo.MAC, mac ,MAC_ADDR_SIZE) == 0)
             {
+                char param_name[128],
+                     prev_cap[128];
+                IDM_REMOTE_DEVICE_STATUS   PrevStatus;
+                
                 CcspTraceInfo(("%s %d : Entry found %s\n",__FUNCTION__, __LINE__,remoteDevice->stRemoteDeviceInfo.MAC));
+                PrevStatus = remoteDevice->stRemoteDeviceInfo.Status;
                 remoteDevice->stRemoteDeviceInfo.Status = DEVICE_CONNECTED;
+                memset(prev_cap, 0, sizeof(prev_cap));
+                snprintf(prev_cap,sizeof(prev_cap),"%s",remoteDevice->stRemoteDeviceInfo.Capabilities);
                 strncpy(remoteDevice->stRemoteDeviceInfo.Capabilities,device->Capabilities, sizeof(remoteDevice->stRemoteDeviceInfo.Capabilities));
                 strncpy(remoteDevice->stRemoteDeviceInfo.ModelNumber,device->ModelNumber, sizeof(remoteDevice->stRemoteDeviceInfo.ModelNumber));
                 remoteDevice->stRemoteDeviceInfo.HelloInterval = device->HelloInterval;
@@ -106,6 +114,34 @@ void Capabilities_get_cb(IDM_REMOTE_DEVICE_INFO *device, ANSC_STATUS status ,cha
                 DeviceChangeEvent.mac_addr = remoteDevice->stRemoteDeviceInfo.MAC;
             DeviceChangeEvent.available = true;
                 Idm_PublishDeviceChangeEvent(&DeviceChangeEvent);
+
+                //Publish MAC Event
+                if( sidmRmSubStatus.idmRmMacSubscribed )
+                {
+                    memset(param_name,0,sizeof(param_name));
+                    snprintf(param_name,sizeof(param_name),DM_PUBLISH_REMOTE_DEVICE_MAC,remoteDevice->stRemoteDeviceInfo.Index);
+                    CcspTraceInfo(("%s %d Publishing Event for dm '%s' MAC '%s'\n",__FUNCTION__,__LINE__,param_name,remoteDevice->stRemoteDeviceInfo.MAC));
+                    Idm_PublishDmEvent(param_name,remoteDevice->stRemoteDeviceInfo.MAC);
+                }
+
+                //Publish Status Event
+                if( ( sidmRmSubStatus.idmRmStatusSubscribed ) && ( PrevStatus != remoteDevice->stRemoteDeviceInfo.Status ) )
+                {
+                    memset(param_name,0,sizeof(param_name));
+                    snprintf(param_name,sizeof(param_name),DM_PUBLISH_REMOTE_DEVICE_STATUS,remoteDevice->stRemoteDeviceInfo.Index);
+                    CcspTraceInfo(("%s %d Publishing Event for dm '%s' MAC '%s' Value '%d'\n",__FUNCTION__,__LINE__,param_name,remoteDevice->stRemoteDeviceInfo.MAC,remoteDevice->stRemoteDeviceInfo.Status));
+                    Idm_PublishDmEvent(param_name,&remoteDevice->stRemoteDeviceInfo.Status);
+                }
+
+                //Publish Capabilities Event
+                if( ( sidmRmSubStatus.idmRmCapSubscribed ) && ( 0 != strcmp(prev_cap,remoteDevice->stRemoteDeviceInfo.Capabilities) ) )
+                {
+                    memset(param_name,0,sizeof(param_name));
+                    snprintf(param_name,sizeof(param_name),DM_PUBLISH_REMOTE_DEVICE_CAP,remoteDevice->stRemoteDeviceInfo.Index);
+                    CcspTraceInfo(("%s %d Publishing Event for dm '%s' MAC '%s' Value '%s'\n",__FUNCTION__,__LINE__,param_name,remoteDevice->stRemoteDeviceInfo.MAC,remoteDevice->stRemoteDeviceInfo.Capabilities));
+                    Idm_PublishDmEvent(param_name,remoteDevice->stRemoteDeviceInfo.Capabilities);
+                }
+
                 break;
             }
             remoteDevice=remoteDevice->next;
@@ -245,6 +281,8 @@ void discovery_cb_thread(void *arg)
 
             if(!discovery_status)
             {
+                char param_name[128];
+
                 //TODO: Publish device change event.
                 remoteDevice->stRemoteDeviceInfo.Status = DEVICE_NOT_DETECTED;
                 if(remoteDevice->stRemoteDeviceInfo.conn_info.conn != 0)
@@ -259,6 +297,16 @@ void discovery_cb_thread(void *arg)
                 DeviceChangeEvent.mac_addr = remoteDevice->stRemoteDeviceInfo.MAC;
                 DeviceChangeEvent.available = false;
                 Idm_PublishDeviceChangeEvent(&DeviceChangeEvent);
+
+                //Publish Status Event
+                if(sidmRmSubStatus.idmRmStatusSubscribed )
+                {
+                    memset(param_name,0,sizeof(param_name));
+                    snprintf(param_name,sizeof(param_name),DM_PUBLISH_REMOTE_DEVICE_STATUS,remoteDevice->stRemoteDeviceInfo.Index);
+                    CcspTraceInfo(("%s %d Publishing Event for dm '%s' MAC '%s' Value '%d'\n",__FUNCTION__,__LINE__,param_name,remoteDevice->stRemoteDeviceInfo.MAC,remoteDevice->stRemoteDeviceInfo.Status));
+                    Idm_PublishDmEvent(param_name,&remoteDevice->stRemoteDeviceInfo.Status);
+                }
+
                 break;
             }
 
@@ -328,6 +376,13 @@ void discovery_cb_thread(void *arg)
         rbusTable_registerRow(rbusHandle, DM_REMOTE_DEVICE_TABLE,
                 pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries, NULL);
 
+        //Publish Status Event
+        if( sidmRmSubStatus.idmRmDeviceNoofEntriesSubscribed )
+        {
+            CcspTraceInfo(("%s %d Publishing Event for dm '%s' Value '%d'\n",__FUNCTION__,__LINE__,RM_NUM_ENTRIES,pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries));
+            Idm_PublishDmEvent(RM_NUM_ENTRIES,&pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries);
+        }
+                
         /* Create link */
         connection_config_t connectionConf;
         memset(&connectionConf, 0, sizeof(connection_config_t));
@@ -348,7 +403,8 @@ void discovery_cb_thread(void *arg)
     {
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     }
-                CcspTraceError(("%s %d - exit \n", __FUNCTION__, __LINE__));
+    CcspTraceError(("%s %d - exit \n", __FUNCTION__, __LINE__));
+    
     free(threadArgs);
     pthread_exit(NULL);
     return 0;
