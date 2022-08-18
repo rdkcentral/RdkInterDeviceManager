@@ -550,9 +550,13 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
             }
             strcat(indexNode->stRemoteDeviceInfo.Capabilities, str);        
         }
+        strncpy(pidmDmlInfo->stConnectionInfo.Capabilities, indexNode->stRemoteDeviceInfo.Capabilities, sizeof(pidmDmlInfo->stConnectionInfo.Capabilities));
         CcspTraceInfo(("%s %d: DeviceCapabilities str = %s\n", __FUNCTION__, __LINE__, indexNode->stRemoteDeviceInfo.Capabilities));
         
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+
+        IDM_Broadcast_LocalDeviceInfo();
+        IdmMgr_write_IDM_ParametersToPSM();
         return RBUS_ERROR_SUCCESS;
     }
     else if(strcmp(methodName, "Device.X_RDK_Remote.RemoveDeviceCapabilities()") == 0)
@@ -593,8 +597,11 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
             strcpy(capPos, capPos + (strlen(out) + 1));
         }
 
+        strncpy(pidmDmlInfo->stConnectionInfo.Capabilities, indexNode->stRemoteDeviceInfo.Capabilities, sizeof(pidmDmlInfo->stConnectionInfo.Capabilities));
         CcspTraceInfo(("%s %d: DeviceCapabilities str = %s\n", __FUNCTION__, __LINE__, indexNode->stRemoteDeviceInfo.Capabilities));
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+        IDM_Broadcast_LocalDeviceInfo();
+        IdmMgr_write_IDM_ParametersToPSM();
         return RBUS_ERROR_SUCCESS;
     }
     else if(strcmp(methodName, "Device.X_RDK_Remote.ResetDeviceCapabilities()") == 0)
@@ -615,7 +622,10 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
         }
         memset(indexNode->stRemoteDeviceInfo.Capabilities, 0, sizeof(indexNode->stRemoteDeviceInfo.Capabilities));
         /* TODO: Get default capability list and store it in node*/
+        strncpy(pidmDmlInfo->stConnectionInfo.Capabilities, indexNode->stRemoteDeviceInfo.Capabilities, sizeof(pidmDmlInfo->stConnectionInfo.Capabilities));
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+        IDM_Broadcast_LocalDeviceInfo();
+        IdmMgr_write_IDM_ParametersToPSM();
         return RBUS_ERROR_SUCCESS;
     }
     else if(strcmp(methodName, "Device.X_RDK_Remote.Invoke()") == 0)

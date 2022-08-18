@@ -224,11 +224,12 @@ int IDM_Incoming_Response_handler(payload_t * payload)
         req = IDM_getFromSendRequestList(payload->reqID);
         if(req == NULL)
         {
-            //Entry not found. may be timed out.
-            return -1;
+            if(payload->operation != IDM_REQUEST) /* Async device info update. */
+                return -1; //Entry not found. may be timed out.
+        }else{
+            async_callBack_handler = req->resCb;
+            free(req);
         }
-        async_callBack_handler = req->resCb;
-        free(req);
     }
     //call the responce callback API
     if(payload->operation == IDM_REQUEST)
@@ -575,9 +576,38 @@ void IDM_Incoming_req_handler_thread()
 }
 
 
+void IDM_Broadcast_LocalDeviceInfo()
+{
+    PIDM_DML_INFO pidmDmlInfo = NULL;
+    /*Create Payload */
+    payload_t payload;
+    memset(&payload, 0, sizeof(payload_t));
 
+    pidmDmlInfo = IdmMgr_GetConfigData_locked();
+    IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
+    if( pidmDmlInfo == NULL )
+    {
+        payload.status =  ANSC_STATUS_FAILURE;
+    }
+    /*get local deivce struct */
+    memcpy(payload.param_value, &(pidmDmlInfo->stRemoteInfo.pstDeviceLink->stRemoteDeviceInfo),sizeof(IDM_REMOTE_DEVICE_INFO));
+    payload.status =  ANSC_STATUS_SUCCESS;
 
+    payload.reqID = -1; //It's an Async message reqID not avaiable.
+    payload.operation = IDM_REQUEST;
+    payload.msgType = RES;
+    strncpy(payload.Mac_source,remoteDevice->stRemoteDeviceInfo.MAC,MAC_ADDR_SIZE);
 
-
-
+    remoteDevice=remoteDevice->next; 
+    while(remoteDevice!=NULL)
+    {
+        if(remoteDevice->stRemoteDeviceInfo.Status == DEVICE_CONNECTED)
+        {
+            if(remoteDevice->stRemoteDeviceInfo.conn_info.conn !=0)
+                send_remote_message(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload);
+        }
+        remoteDevice=remoteDevice->next;
+    }
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+}
 

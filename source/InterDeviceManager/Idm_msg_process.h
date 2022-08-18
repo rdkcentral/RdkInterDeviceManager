@@ -136,7 +136,7 @@ RecvReqList* IDM_ReceivedReqList_pop();
 int IDM_Incoming_Request_handler(payload_t * payload);
 
 void IDM_Incoming_req_handler_thread();
-
+void IDM_Broadcast_LocalDeviceInfo();
 
 #endif
 
