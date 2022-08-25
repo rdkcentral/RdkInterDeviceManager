@@ -39,7 +39,6 @@
 #define CONN_HC_ELEMENTS   4
 #define CONN_METHOD_ELEMENTS   3
 #define RM_NEW_DEVICE_FOUND "Device.X_RDK_Remote.DeviceChange"
-#define  ARRAY_SZ(x) (sizeof(x) / sizeof((x)[0]))
 
 #define DM_CONN_HELLO_INTERVAL "Device.X_RDK_Connection.HelloInterval"
 #define DM_CONN_HELLO_IPV4SUBNET_LIST "Device.X_RDK_Connection.HelloIPv4SubnetList"
@@ -867,3 +866,59 @@ rbusError_t X_RDK_Remote_Device_SetHandler(rbusHandle_t handle, rbusProperty_t p
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return RBUS_ERROR_SUCCESS;
 }
+#ifdef _HUB4_PRODUCT_REQ_
+BOOL Idm_Rbus_discover_components(char const *pModuleList)
+{
+    rbusError_t rc = RBUS_ERROR_SUCCESS;
+    int componentCnt = 0;
+    char **pComponentNames;
+    BOOL ret = FALSE;
+    char ModuleList[1024] = {0};
+    char const *rbusModuleList[7];
+    int count = 0;
+    const char delimit[2] = " ";
+    char *token;
+
+    strcpy(ModuleList,pModuleList);
+
+    /* get the first token */
+    token = strtok(ModuleList, delimit);
+
+    /* walk through other tokens */
+    while( token != NULL ) {
+        printf( " %s\n", token );
+        rbusModuleList[count]=token;
+        count++;
+        token = strtok(NULL, delimit);
+    }
+
+    for(int i=0; i<count;i++)
+    {
+        CcspTraceInfo(("Idm_Rbus_discover_components rbusModuleList[%s]\n", rbusModuleList[i]));
+    }
+
+    rc = rbus_discoverComponentName (rbusHandle, count, rbusModuleList, &componentCnt, &pComponentNames);
+
+    if(RBUS_ERROR_SUCCESS != rc)
+    {
+        CcspTraceInfo(("Failed to discover components. Error Code = %d\n", rc));
+        return ret;
+    }
+
+    for (int i = 0; i < componentCnt; i++)
+    {
+        free(pComponentNames[i]);
+    }
+
+    free(pComponentNames);
+
+    if(componentCnt == count)
+    {
+        ret = TRUE;
+    }
+
+    CcspTraceInfo( ("Idm_Rbus_discover_components (%d-%d)ret[%s]\n",componentCnt,count,(ret)?"TRUE":"FALSE"));
+
+    return ret;
+}
+#endif

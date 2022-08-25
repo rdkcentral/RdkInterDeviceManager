@@ -53,6 +53,13 @@ extern ANSC_HANDLE  bus_handle;
 extern char         g_Subsystem[32];
 static IDM_DML_LINK_LIST sidmDmlListInfo;
 
+int IsFileExists(char *file_name)
+{
+    struct stat file;
+
+    return (stat(file_name, &file));
+}
+
 ANSC_STATUS IDM_SyseventInit()
 {
     ANSC_STATUS ret = ANSC_STATUS_SUCCESS;

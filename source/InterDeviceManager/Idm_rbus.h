@@ -105,7 +105,9 @@ rbusError_t X_RDK_Connection_GetHandler(rbusHandle_t handle, rbusProperty_t prop
 rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* opts);
 
 rbusError_t X_RDK_Remote_Device_SetHandler(rbusHandle_t handle, rbusProperty_t prop, rbusSetHandlerOptions_t* opts);
-
+#ifdef _HUB4_PRODUCT_REQ_
+BOOL Idm_Rbus_discover_components(char const *pModuleList);
+#endif
 #endif 
 
 
