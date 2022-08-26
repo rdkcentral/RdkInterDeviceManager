@@ -123,6 +123,7 @@ void tcp_server_thread(void *arg)
         return 0;
     }
 
+#ifndef IDM_DEBUG
     if (!ssl_lib_init) {
         ssl_lib_init = true;
         SSL_library_init();
@@ -135,6 +136,7 @@ void tcp_server_thread(void *arg)
         CcspTraceError(("(%s:%d) Can't use certificate now!!\n", __FUNCTION__, __LINE__));
         return;
     }
+#endif
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = INADDR_ANY;
     servaddr.sin_port = htons(IDM_DEVICE_TCP_PORT);
@@ -198,19 +200,19 @@ void tcp_server_thread(void *arg)
             {
                 //close(c_fd);
                 CcspTraceInfo(("\nNo space left = %d\n", c_fd));
-            } else {
-                ssl[i] = SSL_new(ctx);
-                if (ssl[i] != NULL) {
-                    SSL_set_fd(ssl[i], client_socket[i]);
-                    if (SSL_accept(ssl[i]) <= 0) {
-                        CcspTraceError(("(%s:%d)SSL handshake failed\n", __FUNCTION__, __LINE__));
-                    }
-                } else {
-                    CcspTraceError(("(%s:%d) SSL session creation failed for client (%d)\n", __FUNCTION__, __LINE__, c_fd));
-                }
             }
+#ifndef IDM_DEBUG
+            ssl[i] = SSL_new(ctx);
+            if (ssl[i] != NULL) {
+                SSL_set_fd(ssl[i], client_socket[i]);
+                if (SSL_accept(ssl[i]) <= 0) {
+                    CcspTraceError(("(%s:%d)SSL handshake failed\n", __FUNCTION__, __LINE__));
+                }
+            } else {
+                CcspTraceError(("(%s:%d) SSL session creation failed for client (%d)\n", __FUNCTION__, __LINE__, c_fd));
+            }
+#endif
         }
-
         //else its some IO operation on some other socket
         for (i = 0; i < MAX_TCP_CLIENTS; i++)
         {
@@ -221,7 +223,12 @@ void tcp_server_thread(void *arg)
                 //Check if it was for closing , and also read the
                 //incoming message
                 memset((void *)&buffer, 0, sizeof(payload_t));
+#ifndef IDM_DEBUG
                 ret = SSL_read(ssl[i], (void *)&buffer, sizeof(payload_t));
+#else
+                ret = read( sd , (void *)&buffer, sizeof(payload_t));
+#endif
+
                 if (ret <= 0)
                 {
                     if (ret == 0)
@@ -229,8 +236,10 @@ void tcp_server_thread(void *arg)
                         //Somebody disconnected
                         //Close the socket and mark as 0 in list for reuse
                         CcspTraceInfo(("(%s:%d) Client socket(%d) closed\n", __FUNCTION__, __LINE__, sd));
+#ifndef IDM_DEBUG
                         SSL_free(ssl[i]);
                         ssl[i] = NULL;
+#endif
                         close(sd);
                         client_socket[i] = 0;
                     } else {
@@ -305,6 +314,7 @@ int open_remote_connection(connection_config_t* connectionConf, int (*connection
     //TODO: check for dynamic allocation
     connection_info_t conn_info;
     conn_info.conn = client_sockfd;
+#ifndef IDM_DEBUG
     conn_info.enc.ctx = NULL;
     conn_info.enc.ssl = NULL;
 
@@ -331,12 +341,17 @@ int open_remote_connection(connection_config_t* connectionConf, int (*connection
     {
         CcspTraceInfo(("Encryption status is set to false"));
     }
+#else
+    CcspTraceError(("(%s:%d) Refactor Disabled. Continue Connection without encryption\n", __FUNCTION__, __LINE__));
+    enc_status = true;
+#endif
     connection_cb(connectionConf->device, &conn_info, enc_status);
     return 0;
 }
 
 int send_remote_message(connection_info_t* conn_info,void *payload)
 {
+#ifndef IDM_DEBUG
     int val;
     if (conn_info->enc.ctx != NULL && conn_info->enc.ssl != NULL) {
         if ((val = SSL_write(conn_info->enc.ssl, payload, sizeof(payload_t))) > 0) {
@@ -351,6 +366,13 @@ int send_remote_message(connection_info_t* conn_info,void *payload)
     {
         CcspTraceError(("(%s:%d) SSL CTX is NULL, Data send failed\n", __FUNCTION__, __LINE__));
     }
+#else
+    if(send(conn_info->conn, payload, sizeof(payload_t), 0)<0)
+    {
+        CcspTraceError(("%s %d - send failed failed : %s\n",  __FUNCTION__, __LINE__, strerror(errno)));
+        return -1;
+    }
+#endif
     return -1;
 }
 
