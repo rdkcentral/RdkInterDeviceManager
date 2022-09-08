@@ -97,6 +97,7 @@ typedef struct {
     uint  port;
     uint  discovery_interval;
     uint  loss_detection_window;
+    char base_mac[32];
 } discovery_config_t;
 
 typedef struct {

@@ -358,8 +358,10 @@ void start_discovery_thread(void)
 {
     CcspTraceInfo(("%s %d - \n", __FUNCTION__, __LINE__));
 
-    discovery_config_t discoveryConf;
     pthread_detach(pthread_self());
+    discovery_config_t discoveryConf;
+
+    memset (&discoveryConf, 0, sizeof(discovery_config_t));
 
     /* Update discovery_config deatils */
     discoveryConf.port = IDM_DEFAULT_DEVICE_TCP_PORT;
@@ -372,6 +374,9 @@ void start_discovery_thread(void)
         discoveryConf.loss_detection_window = (pidmDmlInfo->stConnectionInfo.DetectionWindow /1000);//TODO: update
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     }
+    platform_hal_GetBaseMacAddress(discoveryConf.base_mac);
+
+    CcspTraceInfo(("%s %d: starting discovery process with base MAC: %s\n", __FUNCTION__, __LINE__, discoveryConf.base_mac));
 
     /*Start CAL Device discovery process */
     if(start_discovery(&discoveryConf, discovery_cb) !=0)

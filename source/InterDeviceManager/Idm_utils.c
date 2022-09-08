@@ -326,11 +326,11 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
     if (localDevice)
     {
         struct in_addr netMask, ip_addr;
+
         /* get Interface MAC */
+        platform_hal_GetBaseMacAddress(localDevice->stRemoteDeviceInfo.MAC);
+
         ioctl(fd, SIOCGIFHWADDR, &ifr);
-        const unsigned char* mac=(unsigned char*)ifr.ifr_hwaddr.sa_data;
-        sprintf(localDevice->stRemoteDeviceInfo.MAC,"%02X:%02X:%02X:%02X:%02X:%02X",
-                mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
 
         /* get Interface IPv4 */
         ifr.ifr_addr.sa_family = AF_INET;
