@@ -34,6 +34,7 @@
 
 #include "Idm_rbus.h"
 #include "Idm_msg_process.h"
+#include "Idm_data.h"
 
 #define CONN_HC_ELEMENTS   4
 #define CONN_METHOD_ELEMENTS   3
@@ -536,19 +537,25 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
 
         indexNode = getRmDeviceNode(pidmDmlInfo, 1);
 
-        if(!indexNode || (strlen(str) < 0))
+        if(!indexNode || (strlen(str) < 0) || 
+            (sizeof(indexNode->stRemoteDeviceInfo.Capabilities) < (strlen(indexNode->stRemoteDeviceInfo.Capabilities) + strlen(str) + 2)))
         {
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_BUS_ERROR;
         }
-    
-        if(!strstr(indexNode->stRemoteDeviceInfo.Capabilities, str))
+
+        char* token = strtok(str, ",");
+        while (token != NULL) 
         {
-            if (strlen(indexNode->stRemoteDeviceInfo.Capabilities) > 0)
+            if(!strstr(indexNode->stRemoteDeviceInfo.Capabilities, token))
             {
-                strcat(indexNode->stRemoteDeviceInfo.Capabilities, ",");
+                if (strlen(indexNode->stRemoteDeviceInfo.Capabilities) > 0)
+                {
+                    strcat(indexNode->stRemoteDeviceInfo.Capabilities, ",");
+                }
+                strcat(indexNode->stRemoteDeviceInfo.Capabilities, token);        
             }
-            strcat(indexNode->stRemoteDeviceInfo.Capabilities, str);        
+            token = strtok(NULL, ",");
         }
         strncpy(pidmDmlInfo->stConnectionInfo.Capabilities, indexNode->stRemoteDeviceInfo.Capabilities, sizeof(pidmDmlInfo->stConnectionInfo.Capabilities));
         CcspTraceInfo(("%s %d: DeviceCapabilities str = %s\n", __FUNCTION__, __LINE__, indexNode->stRemoteDeviceInfo.Capabilities));
@@ -577,26 +584,28 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
         }
 
         char * arr = indexNode->stRemoteDeviceInfo.Capabilities;
-
-        capPos = strstr(arr, out);
-        if(capPos)
+        char* token = strtok(out, ",");
+        while (token != NULL) 
         {
-            if (*(capPos + strlen(out)) == '\0')
+            capPos = strstr(arr, token);
+            if(capPos)
             {
-                // removing last capability, so set null char
-                *capPos = '\0';
-                if (strlen(arr) > 0)
+                if (*(capPos + strlen(token)) == '\0')
                 {
-                    // removing last ; char
-                    *(capPos - 1) = '\0';
+                    // removing last capability, so set null char
+                    *capPos = '\0';
+                    if (strlen(arr) > 0)
+                    {
+                        // removing last ; char
+                        *(capPos - 1) = '\0';
+                    }
+                    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+                    return RBUS_ERROR_SUCCESS;
+                }
+                strcpy(capPos, capPos + (strlen(token) + 1));
             }
-                CcspTraceInfo(("%s %d: AddDeviceCapabilities str = %s\n", __FUNCTION__, __LINE__, indexNode->stRemoteDeviceInfo.Capabilities));
-                IdmMgrDml_GetConfigData_release(pidmDmlInfo);
-                return RBUS_ERROR_SUCCESS;
-            }
-            strcpy(capPos, capPos + (strlen(out) + 1));
+            token = strtok(NULL, ",");
         }
-
         strncpy(pidmDmlInfo->stConnectionInfo.Capabilities, indexNode->stRemoteDeviceInfo.Capabilities, sizeof(pidmDmlInfo->stConnectionInfo.Capabilities));
         CcspTraceInfo(("%s %d: DeviceCapabilities str = %s\n", __FUNCTION__, __LINE__, indexNode->stRemoteDeviceInfo.Capabilities));
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
@@ -621,7 +630,7 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
             return RBUS_ERROR_BUS_ERROR;
         }
         memset(indexNode->stRemoteDeviceInfo.Capabilities, 0, sizeof(indexNode->stRemoteDeviceInfo.Capabilities));
-        /* TODO: Get default capability list and store it in node*/
+        IdmMgr_GetFactoryDefaultValue(PSM_DEVICE_CAPABILITIES, indexNode->stRemoteDeviceInfo.Capabilities);
         strncpy(pidmDmlInfo->stConnectionInfo.Capabilities, indexNode->stRemoteDeviceInfo.Capabilities, sizeof(pidmDmlInfo->stConnectionInfo.Capabilities));
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         IDM_Broadcast_LocalDeviceInfo();

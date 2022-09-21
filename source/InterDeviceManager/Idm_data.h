@@ -60,4 +60,5 @@ ANSC_STATUS IdmMgr_Data_Init(void);
 
 int IdmMgr_write_IDM_ParametersToPSM();
 
+ANSC_STATUS IdmMgr_GetFactoryDefaultValue(const char * param_name,char * param_value);
 #endif

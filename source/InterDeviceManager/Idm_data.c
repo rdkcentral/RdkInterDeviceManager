@@ -40,6 +40,7 @@
 #define DEFAULT_BC_PORT 1234
 #define DEFAULT_BC_INTF "br403"
 #define DEFAULT_RM_PORT 4321
+#define DEFAULT_PSM_FILE "/usr/ccsp/config/bbhm_def_cfg.xml"
 
 IDMMGR_CONFIG_DATA gpidmDmlInfo;
 
@@ -214,3 +215,44 @@ ANSC_STATUS IdmMgr_Data_Init(void)
     return ANSC_STATUS_SUCCESS;
 }
 
+/* IdmMgr_GetFactoryDefaultValue()
+ * This function Reads factory default value from PSM DB.
+ * Returns ANSC_STATUS_SUCCESS on successful read.
+ */
+ANSC_STATUS IdmMgr_GetFactoryDefaultValue(const char * param_name,char * param_value)
+{
+
+    FILE * fp = NULL;
+    size_t len = 0;
+    char *line = NULL;
+
+    if ((param_name == NULL))
+    {
+        CcspTraceError(("%s %d: Invalid args\n", __FUNCTION__, __LINE__));
+        return ANSC_STATUS_FAILURE;
+    }
+
+    fp = fopen(DEFAULT_PSM_FILE, "r");
+    if (fp == NULL)
+    {
+        CcspTraceError(("%s %d: unable to open file %s", __FUNCTION__, __LINE__, strerror(errno)));
+        return ANSC_STATUS_FAILURE;
+    }
+
+    while (getline(&line, &len, fp) != -1)
+    {
+        if(strstr(line, param_name) != NULL)
+        {
+            // PSM entry stored as <Record name="dmsb.interdevicemanager.Capabilities" type="astr">Gateway</Record>
+            sscanf (line,"%*[^>]>%[^<]%*[^\n]", param_value);
+            break;
+        }
+    }
+    if (line)
+    {
+        free(line);
+    }
+    fclose (fp);
+
+    return ANSC_STATUS_SUCCESS;
+}
