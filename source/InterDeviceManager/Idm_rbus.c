@@ -65,6 +65,8 @@
 
 #define DM_REMOTE_DEVICE_GET_FILE "Device.X_RDK_Remote.getFile()"
 #define DM_REMOTE_DEVICE_SEND_FILE "Device.X_RDK_Remote.sendFile()"
+#define DM_REMOTE_DEVICE_FT_SIZE "Device.X_RDK_Remote.FileTransferMaxSize()"
+#define DM_REMOTE_DEVICE_FT_STATUS "Device.X_RDK_Remote.FileTransferStatus()"
 #define RM_PORT "Device.X_RDK_Remote.Port"
 
 rbusHandle_t        rbusHandle;
@@ -85,7 +87,7 @@ rbusDataElement_t idmRmPublishElements[] = {
     {DM_REMOTE_DEVICE_MODEL_NUM, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}},
     {RM_NEW_DEVICE_FOUND, RBUS_ELEMENT_TYPE_EVENT, { NULL, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}},
     {RM_NUM_ENTRIES, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}},
-    {RM_PORT, RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, X_RDK_Remote_Device_SetHandler, NULL, NULL, NULL, NULL}}
+    {RM_PORT, RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, X_RDK_Remote_Device_SetHandler, NULL, NULL, NULL, NULL}},
 };
 
 //2. local data
@@ -95,7 +97,8 @@ rbusDataElement_t idmConnHcElements[] = {
     {DM_CONN_HELLO_IPV6SUBNET_LIST, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, NULL, NULL, NULL, NULL, NULL}},
     {DM_CONN_DETECTION_WINDOW, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}},
     {DM_CONN_INTF, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}},
-    {DM_CONN_PORT, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}}
+    {DM_CONN_PORT, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}},
+    {DM_REMOTE_DEVICE_FT_SIZE, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}}
 };
 
 //3. Remote cap
@@ -105,6 +108,7 @@ rbusDataElement_t idmRmCapElements[] = {
         {DM_REMOTE_DEVICE_RESET_CAP, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
         {DM_REMOTE_DEVICE_GET_FILE, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
         {DM_REMOTE_DEVICE_SEND_FILE, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
+        {DM_REMOTE_DEVICE_FT_STATUS, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
         {DM_REMOTE_DEVICE_INVOKE, RBUS_ELEMENT_TYPE_METHOD | RBUS_ELEMENT_TYPE_EVENT, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}}
     };
 
@@ -534,7 +538,7 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
         indexNode = getRmDeviceNode(pidmDmlInfo, 1);
 
         if(!indexNode || (strlen(str) < 0) || 
-            (sizeof(indexNode->stRemoteDeviceInfo.Capabilities) < (strlen(indexNode->stRemoteDeviceInfo.Capabilities) + strlen(str) + 2)))
+                (sizeof(indexNode->stRemoteDeviceInfo.Capabilities) < (strlen(indexNode->stRemoteDeviceInfo.Capabilities) + strlen(str) + 2)))
         {
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_BUS_ERROR;
@@ -722,6 +726,57 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
         IDM_getFile_from_Remote_device(mac_dest,filename,output_location);
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         return RBUS_ERROR_SUCCESS;
+    }
+    else if(strcmp(methodName,"Device.X_RDK_Remote.FileTransferMaxSize()") == 0 )
+    {
+        int size_value=0;
+        char* type = NULL;
+        rbusValue_t value;
+        value = rbusObject_GetValue(inParams, "Size");
+        size_value = rbusValue_GetInt32(value);
+
+        value = rbusObject_GetValue(inParams,"Type");
+        type = (char*)rbusValue_GetString(value,NULL);
+        if(strcmp(type,"MB") == 0)
+        {
+            if(size_value > 1)
+            {
+                CcspTraceError(("%s:%d max file transfer is only 1 MB. Please reduce the size\n",__FUNCTION__,__LINE__));
+                IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+                return RBUS_ERROR_INVALID_INPUT;
+            }
+            size_value = size_value*1000000;
+        }
+        else if(strcmp(type,"KB") == 0)
+        {
+            if((size_value*1000) > 1000000)
+            {
+                CcspTraceError(("%s:%d max file transfer is only 1 MB. Please reduce the size\n",__FUNCTION__,__LINE__));
+                IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+                return RBUS_ERROR_INVALID_INPUT;
+            }
+            size_value*=1000;
+        }
+        else if(strcmp(type,"B") == 0)
+        {
+            if(size_value > 1000000)
+            {
+                CcspTraceError(("%s:%d max file transfer is only 1 MB. Please reduce the size\n",__FUNCTION__,__LINE__));
+                IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+                return RBUS_ERROR_INVALID_INPUT;
+            }
+        }
+        else
+        {
+            CcspTraceInfo(("%s:%d memory type should be MB/KB/B\n",__FUNCTION__,__LINE__));
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            return RBUS_ERROR_INVALID_INPUT;
+        }
+        pidmDmlInfo->stRemoteInfo.max_file_size  = size_value;
+    }
+    else if(strcmp(methodName,"Device.X_RDK_Remote.FileTransferStatus()") == 0)
+    {
+        CcspTraceInfo(("status of last file transfer = %s\n", pidmDmlInfo->stRemoteInfo.ft_status));
     }
     else
     {

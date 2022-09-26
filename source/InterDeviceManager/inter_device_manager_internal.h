@@ -58,7 +58,7 @@
 #define IPv4_ADDR_SIZE 16
 #define IPv6_ADDR_SIZE 128
 #define LOC_SIZE 128
-
+#define FT_STATUS_SIZE 24
 typedef  struct
 _COMPONENT_COMMON_INTER_DEVICE_MANAGER
 {
@@ -151,6 +151,8 @@ typedef  struct _IDM_REMOTE_INFO
     IDM_REMOTE_DEVICE_CAP_INFO      stRemoteDeviceCapInfo;
     unsigned int                    ulDeviceNumberOfEntries;
     unsigned int                    Port;
+    int                             max_file_size;
+    char                            ft_status[FT_STATUS_SIZE];
     IDM_REMOTE_DEVICE_LINK_INFO     *pstDeviceLink;
 }
 IDM_REMOTE_INFO,  *PIDM_REMOTE_INFO;

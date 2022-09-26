@@ -41,6 +41,7 @@
 #define DEFAULT_PSM_FILE "/usr/ccsp/config/bbhm_def_cfg.xml"
 #define IDM_DEFAULT_DEVICE_BROADCAST_PORT 50765 //TODO: port no TBD
 #define IDM_DEVICE_MESSAGING_PORT 4444 //TODO: port no TBD
+#define DEFAULT_MAX_FT_SIZE 512000 /* 512 KB */
 
 IDMMGR_CONFIG_DATA gpidmDmlInfo;
 
@@ -209,6 +210,8 @@ void IdmMgr_SetConfigData_Default()
         // Initially the remote table will have a single entry with local device info
         pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries = 0;
         pidmDmlInfo->stRemoteInfo.Port = IDM_DEVICE_MESSAGING_PORT;
+        pidmDmlInfo->stRemoteInfo.max_file_size = DEFAULT_MAX_FT_SIZE;
+        AnscCopyString(pidmDmlInfo->stRemoteInfo.ft_status,FT_SUCCESS);
     }
 
 }

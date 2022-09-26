@@ -33,7 +33,6 @@
  */
 
 #include "Idm_msg_process.h"
-
 #define DM_REMOTE_DEVICE_INVOKE "Device.X_RDK_Remote.Invoke()"
 
 sendReqList *headsendReqList =NULL;
@@ -132,15 +131,15 @@ void IDM_addToReceivedSubscriptionList( RecvSubscriptionList *newSubscription)
 ANSC_STATUS IDM_sendFile_to_Remote_device(char* Mac_dest,char* filename,char* output_location)
 {
     CcspTraceDebug(("Inside %s:%d\n",__FUNCTION__,__LINE__));
+    int rc=-1,ind=0;
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
     {
-        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         return  ANSC_STATUS_FAILURE;
     }
     IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
     IDM_REMOTE_DEVICE_LINK_INFO *localDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
-
+    int match = 0;
     while(remoteDevice!=NULL)
     {
         if(strcasecmp(remoteDevice->stRemoteDeviceInfo.MAC,Mac_dest) == 0 && (remoteDevice->stRemoteDeviceInfo.Status == DEVICE_CONNECTED ))
@@ -149,22 +148,30 @@ ANSC_STATUS IDM_sendFile_to_Remote_device(char* Mac_dest,char* filename,char* ou
             {
                 payload_t payload;
                 memset(&payload, 0, sizeof(payload_t));
-                sendReqList *newReq = malloc(sizeof(sendReqList));
-                memset(newReq, 0, sizeof(sendReqList));
-                newReq->reqId = gReqIdCounter++;
-                strncpy(newReq->Mac_dest,Mac_dest, MAC_ADDR_SIZE);
                 payload.operation = SFT;
                 payload.msgType = SFT;
                 strncpy(payload.Mac_source, localDevice->stRemoteDeviceInfo.MAC,MAC_ADDR_SIZE);
                 strncpy(payload.param_name,filename,sizeof(payload.param_name));
                 CcspTraceDebug(("Inside %s:%d peer MAC=%s\n",__FUNCTION__,__LINE__,Mac_dest,localDevice->stRemoteDeviceInfo.MAC));
-                sendFile_to_remote(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload,output_location);
+                strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,sendFile_to_remote(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload,output_location));
+                Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+                rc = strcmp_s(FT_SUCCESS,strlen(FT_SUCCESS),pidmDmlInfo->stRemoteInfo.ft_status,&ind);
+                ERR_CHK(rc);
+                if(rc != EOK || ind)
+                {
+                    usleep(250000);
+                    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+                    return  ANSC_STATUS_FAILURE;
+                }
                 usleep(250000);
+                match = 1;
                 break;
             }
             else
             {
                 CcspTraceError(("%s: conn value is equals to zero\n",__FUNCTION__));
+                strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,FT_ERROR);
+                Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
                 IdmMgrDml_GetConfigData_release(pidmDmlInfo);
                 return  ANSC_STATUS_FAILURE;
             }
@@ -174,16 +181,22 @@ ANSC_STATUS IDM_sendFile_to_Remote_device(char* Mac_dest,char* filename,char* ou
             remoteDevice=remoteDevice->next;
         }
     }
+    if(match == 0)
+    {
+        strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,FT_INVALID_DST_MAC);
+        Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+    }
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return ANSC_STATUS_SUCCESS;
 }
+
 ANSC_STATUS IDM_getFile_from_Remote_device(char* Mac_dest,char* filename,char* output_location)
 {
     CcspTraceDebug(("Inside %s:%d\n",__FUNCTION__,__LINE__));
+    int match = 0;
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
     {
-        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         return  ANSC_STATUS_FAILURE;
     }
     IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
@@ -211,11 +224,14 @@ ANSC_STATUS IDM_getFile_from_Remote_device(char* Mac_dest,char* filename,char* o
                 CcspTraceDebug(("Inside %s:%d peer MAC=%s\n",__FUNCTION__,__LINE__,Mac_dest));
                 send_remote_message(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload);
                 usleep(250000);
+                match = 1;
                 break;
             }
             else
             {
                 CcspTraceError(("%s: conn value is equals to zero\n",__FUNCTION__));
+                strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,FT_ERROR);
+                Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
                 IdmMgrDml_GetConfigData_release(pidmDmlInfo);
                 return  ANSC_STATUS_FAILURE;
             }
@@ -224,6 +240,11 @@ ANSC_STATUS IDM_getFile_from_Remote_device(char* Mac_dest,char* filename,char* o
         {
             remoteDevice=remoteDevice->next;
         }
+    }
+    if(match == 0)
+    {
+        strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,FT_INVALID_DST_MAC);        
+        Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
     }
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return ANSC_STATUS_SUCCESS;
@@ -235,7 +256,6 @@ ANSC_STATUS IDM_sendMsg_to_Remote_device(idm_send_msg_Params_t *param)
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
     {
-        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         return  ANSC_STATUS_FAILURE;
     }
     IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
@@ -297,28 +317,75 @@ ANSC_STATUS IDM_sendMsg_to_Remote_device(idm_send_msg_Params_t *param)
         remoteDevice=remoteDevice->next;
     }
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
-
     return ANSC_STATUS_SUCCESS;
 }
 
-void IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
+char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
 {
     CcspTraceDebug(("Inside %s:%d\n",__FUNCTION__,__LINE__));
     char* buf;
-    int bytes=0,length=0,total_bytes=0;
+    int bytes=0,length=0,total_bytes=0,rc = -1,ind = -1;
     if(payload != NULL)
     {
-        total_bytes=atoi(payload->param_value);
-        CcspTraceInfo(("%s file with size %d will be transferred\n",payload->param_name,total_bytes));
-
-        FILE* fptr;
         sendReqList *req;
         req = IDM_getFromSendRequestList(payload->reqID);
+        if(req == NULL)
+        {
+            CcspTraceError(("%s:%d req is null\n",__FUNCTION__,__LINE__));
+            return FT_ERROR;
+        }
+        else
+        {
+            free(req);
+        }
+        rc = strcmp_s(FT_INVALID_FILE_NAME,strlen(FT_INVALID_FILE_NAME),payload->param_value,&ind);
+        ERR_CHK(rc);
+        if((!ind) && (rc == EOK))
+        {
+            return FT_INVALID_SRC_PATH;
+        }
+        rc = strcmp_s(FT_FILE_SIZE_EXCEED,strlen(FT_FILE_SIZE_EXCEED),payload->param_value,&ind);
+        ERR_CHK(rc);
+        if((!ind) && (rc == EOK))
+        {
+            CcspTraceError(("%s %d transfer file size exceeded on peer device\n",__FUNCTION__,__LINE__));
+            return FT_INVALID_FILE_SIZE;
+        }
+        total_bytes=atoi(payload->param_value);
+        CcspTraceInfo(("%s file with size %d will be transferred\n",payload->param_name,total_bytes));
+        PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+        if( pidmDmlInfo == NULL )
+        {
+            CcspTraceError(("%s:%d DmlInfo is NULL\n",__FUNCTION__,__LINE__));
+            return  FT_ERROR;
+        }
+        if(total_bytes > (pidmDmlInfo->stRemoteInfo.max_file_size))
+        {
+            CcspTraceError(("%s:%d transfer file size exceeded on self device compared to %d configured value\n",__FUNCTION__,__LINE__,(pidmDmlInfo->stRemoteInfo.max_file_size)));
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            return FT_INVALID_FILE_SIZE;
+        }
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+        FILE* fptr;
         fptr = fopen(req->output_location,"wb");
         CcspTraceInfo(("output location = %s\n",req->output_location));
         if(!fptr){
-            CcspTraceError(("file not found\n"));
-            return;
+            CcspTraceError(("%s:%d file not found\n",__FUNCTION__,__LINE__));
+            int rc = -1,ind = -1;
+            char* tok = strtok(req->output_location,"/");
+            rc = strcmp_s(FT_NVRAM,strlen(FT_NVRAM),tok,&ind);
+            ERR_CHK(rc);
+            if((!ind) && (rc == EOK))
+            {
+                return FT_INVALID_DST_PATH;
+            }
+            rc = strcmp_s(FT_TMP,strlen(FT_TMP),tok,&ind);
+            ERR_CHK(rc);
+            if((!ind) && (rc == EOK))
+            {
+                return FT_INVALID_DST_PATH;
+            }
+            return FT_NOT_WRITABLE_PATH;
         }
         else{
             buf = (char*) malloc(total_bytes);
@@ -329,7 +396,11 @@ void IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
                 }
                 else{
                     CcspTraceError(("%s:%d ssl session is null\n",__FUNCTION__,__LINE__));
-                    break;
+                    fclose(fptr);
+                    if(buf){
+                        free(buf);
+                    }
+                    return FT_ERROR;
                 }
 #else
                 bytes = read( conn_info->conn , buf, total_bytes-bytes);
@@ -343,16 +414,18 @@ void IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
                     CcspTraceError(("(%s:%d) Data encryption failed (Err: %d)\n", __FUNCTION__, __LINE__,bytes));
                 }
             }
+            if(buf){
+                free(buf);
+            }
         }
         fclose(fptr);
-        if(buf){
-            free(buf);
-        }
+        return FT_SUCCESS;
     }
     else
     {
         CcspTraceError(("%s:%d payload is null\n",__FUNCTION__, __LINE__));
     }
+    return FT_ERROR;
 }
 
 int IDM_Incoming_Response_handler(payload_t * payload)
@@ -538,29 +611,88 @@ static void IDM_Rbus_subscriptionEventHandler(rbusHandle_t handle, rbusEvent_t c
     }
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
 }
-void IDM_SFT_receive(connection_info_t* conn_info,payload_t* payload)
+char* IDM_SFT_receive(connection_info_t* conn_info,payload_t* payload)
 {
     CcspTraceDebug(("Inside %s:%d\n",__FUNCTION__,__LINE__));
     char* buf;
     int retry=0,bytes=0,length=0,total_bytes=0,send_start=0;
+    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+    if( pidmDmlInfo == NULL )
+    {
+        CcspTraceError(("%s:%d DmlInfo is NULL\n",__FUNCTION__,__LINE__));
+        return  FT_ERROR;
+    }
     if(payload != NULL)
     {
         total_bytes=atoi(payload->param_value);
         CcspTraceInfo(("%s file with size %d will be transferred\n",payload->param_name,total_bytes));
-
+        if(total_bytes > (pidmDmlInfo->stRemoteInfo.max_file_size))
+        {
+            CcspTraceError(("%s:%d total_bytes is greater than configured max file size = %d\n",__FUNCTION__,__LINE__,pidmDmlInfo->stRemoteInfo.max_file_size));
+#ifndef IDM_DEBUG
+            if(conn_info->enc.ssl != NULL)
+            {
+                if(bytes = (SSL_write(conn_info->enc.ssl,FT_FILE_SIZE_EXCEED,strlen(FT_FILE_SIZE_EXCEED))) <= 0 )
+#else
+                    if(bytes = (send(conn_info->conn,FT_FILE_SIZE_EXCEED,strlen(FT_FILE_SIZE_EXCEED),0)) <= 0 )
+#endif
+                    {
+                        CcspTraceError(("%s:%d file size information not exchanged to peer device\n",__FUNCTION__,__LINE__));
+                        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+                        return FT_ERROR;
+                    }
+#ifndef IDM_DEBUG
+            }
+            else
+            {
+                CcspTraceError(("%s:%d ssl value is null\n",__FUNCTION__,__LINE__));
+                IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+                return FT_ERROR;
+            }
+#endif
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            return FT_INVALID_FILE_SIZE;
+        }
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         FILE* fptr;
         fptr = fopen(payload->param_name,"wb");
         if(!fptr){
             CcspTraceError(("file not found\n"));
+            int rc = -1,ind = -1,invalid_dst=0;
+            char* tok = strtok(payload->param_name,"/");
+            rc = strcmp_s(FT_NVRAM,strlen(FT_NVRAM),tok,&ind);
+            ERR_CHK(rc);
+            if((!ind) && (rc == EOK))
+            {
+                invalid_dst = 1;
+            }
+            rc = strcmp_s(FT_TMP,strlen(FT_TMP),tok,&ind);
+            ERR_CHK(rc);
+            if((!ind) && (rc == EOK))
+            {
+                invalid_dst = 1;
+            }
+            if(invalid_dst == 1)
+            {
+#ifndef IDM_DEBUG
+                if(conn_info->enc.ssl != NULL)
+                {
+                    SSL_write(conn_info->enc.ssl,FT_INVALID_DST,strlen(FT_INVALID_DST));
+                }
+#else
+                send(conn_info->conn,FT_INVALID_DST,strlen(FT_INVALID_DST),0);
+#endif
+                return FT_INVALID_DST_PATH;
+            }
 #ifndef IDM_DEBUG
             if(conn_info->enc.ssl != NULL)
             {
-                SSL_write(conn_info->enc.ssl,"not found",strlen("not found"));
+                SSL_write(conn_info->enc.ssl,FT_NOT_FOUND,strlen(FT_NOT_FOUND));
             }
 #else
-            send(conn_info->conn,"not found",strlen("not found"),0);
+            send(conn_info->conn,FT_NOT_FOUND,strlen(FT_NOT_FOUND),0);
 #endif
-            return;
+            return FT_NOT_WRITABLE_PATH;
         }
         else
         {
@@ -570,7 +702,7 @@ void IDM_SFT_receive(connection_info_t* conn_info,payload_t* payload)
 #ifndef IDM_DEBUG
                 if(conn_info->enc.ssl != NULL)
                 {
-                    if(send_start == 0 && (bytes = SSL_write(conn_info->enc.ssl,"start",strlen("start")) <= 0 ))
+                    if(send_start == 0 && (bytes = SSL_write(conn_info->enc.ssl,FT_START,strlen(FT_START)) <= 0 ))
                     {
                         retry++;
                         CcspTraceError(("acknowledgement not transformed\n"));
@@ -584,10 +716,15 @@ void IDM_SFT_receive(connection_info_t* conn_info,payload_t* payload)
                 else
                 {
                     CcspTraceError(("%s:%d ssl session is null\n",__FUNCTION__,__LINE__));
-                    break;
+                    fclose(fptr);
+                    if(buf)
+                    {
+                        free(buf);
+                    }
+                    return FT_ERROR;
                 }
 #else
-                if(send_start == 0 && (bytes = send(conn_info->conn,"start",strlen("start"),0) <= 0 ))
+                if(send_start == 0 && (bytes = send(conn_info->conn,FT_START,strlen(FT_START),0) <= 0 ))
                 {
                     retry++;
                     CcspTraceError(("acknowledgement not transformed\n"));
@@ -610,21 +747,29 @@ void IDM_SFT_receive(connection_info_t* conn_info,payload_t* payload)
                 }
                 if(retry>30)
                 {
-                    CcspTraceError(("break the loop as we failed to send acknowledgement for 30 times\n"));
-                    break;
+                    CcspTraceError(("failed to send acknowledgement for 30 times\n"));
+                    fclose(fptr);
+                    if(buf)
+                    {
+                        free(buf);
+                    }
+                    return FT_ERROR;
                 }
+            }
+            if(buf)
+            {
+                free(buf);
             }
         }
         fclose(fptr);
-        if(buf)
-        {
-            free(buf);
-        }
     }
     else
     {
         CcspTraceError(("%s:%d payload is null\n",__FUNCTION__, __LINE__));
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+        return FT_ERROR;
     }
+    return FT_SUCCESS;
 }
 
 int IDM_Incoming_Request_handler(payload_t * payload)
@@ -784,6 +929,12 @@ void IDM_Incoming_req_handler_thread()
 
             }else if(ReqEntry->operation == GFT)
             {
+                pidmDmlInfo = IdmMgr_GetConfigData_locked();
+                if( pidmDmlInfo == NULL )
+                {
+                    strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,FT_ERROR);
+                    Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+                }
                 IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
                 payload.reqID = ReqEntry->reqId;
                 payload.operation = ReqEntry->operation;
@@ -798,7 +949,8 @@ void IDM_Incoming_req_handler_thread()
                     {
                         if(remoteDevice->stRemoteDeviceInfo.conn_info.conn !=0)
                         {
-                            getFile_to_remote(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload);
+                            strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,getFile_to_remote(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload));
+                            Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
                         }
                         break;
                     }
@@ -806,6 +958,7 @@ void IDM_Incoming_req_handler_thread()
                 }
                 IdmMgrDml_GetConfigData_release(pidmDmlInfo);
                 free(ReqEntry);
+                pidmDmlInfo = NULL;
                 continue;
             }
 

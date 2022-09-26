@@ -157,7 +157,7 @@ EVENT_DATA_TYPES getEventType(char *event)
             return EV_UNSIGNEDINT;
 
         if(strstr(event, ".MAC") || strstr(event, ".IPv4") || strstr(event, ".IPv6") || 
-                strstr(event, ".Capabilities") || strstr(event, ".ModelNumber"))
+                strstr(event, ".Capabilities") || strstr(event, ".ModelNumber") || strstr(event,".FileTransferStatus"))
             return EV_STRING;
 
         if(strstr(event, ".Status") || strstr(event, ".HelloInterval"))

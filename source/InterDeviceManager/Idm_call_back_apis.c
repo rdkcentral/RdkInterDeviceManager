@@ -56,7 +56,7 @@ extern token_t sysevent_token;
 extern IDM_RBUS_SUBS_STATUS sidmRmSubStatus;
 
 void discovery_cb_thread(void *arg);
-void IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t * payload);
+char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t * payload);
 int rcv_message_cb( connection_info_t* conn_info, void *payload)
 {
     CcspTraceInfo(("%s %d - \n", __FUNCTION__, __LINE__));
@@ -71,11 +71,29 @@ int rcv_message_cb( connection_info_t* conn_info, void *payload)
     }
     else if(recvData->msgType == SFT)
     {
-        IDM_SFT_receive(conn_info,recvData);
+        PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+        if( pidmDmlInfo == NULL )
+        {
+            CcspTraceError(("%s %d idmDmlIndo is null\n",__FUNCTION__,__LINE__));
+            strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,FT_ERROR);
+            return 1;
+        }
+        strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,IDM_SFT_receive(conn_info,recvData));
+        Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     }
     else if(recvData->msgType == GFT)
     {
-        IDM_Incoming_FT_Response(conn_info,recvData);
+        PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+        if( pidmDmlInfo == NULL )
+        {
+            CcspTraceError(("%s %d idmDmlIndo is null\n",__FUNCTION__,__LINE__));
+            strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,FT_ERROR);
+            return 1;
+        }
+        strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,IDM_Incoming_FT_Response(conn_info,recvData));
+        Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     }
     return 0;
 }

@@ -50,6 +50,7 @@
 #include "inter_device_manager_internal.h"
 #include "Idm_utils.h"
 #include "ccsp_base_api.h"
+#include "safec_lib_common.h"
 
 #define RM_NUM_ENTRIES "Device.X_RDK_Remote.DeviceNumberOfEntries"
 
@@ -57,6 +58,23 @@
 #define DM_PUBLISH_REMOTE_DEVICE_STATUS "Device.X_RDK_Remote.Device.%d.Status"
 #define DM_PUBLISH_REMOTE_DEVICE_CAP "Device.X_RDK_Remote.Device.%d.Capabilities"
 #define DM_PUBLISH_REMOTE_DEVICE_MAC "Device.X_RDK_Remote.Device.%d.MAC"
+
+//file transfer status
+#define FT_STATUS_SIZE 24
+#define FT_ERROR "FT_ERROR"
+#define FT_SUCCESS "FT_SUCCESS"
+#define FT_INVALID_SRC_PATH "FT_INVALID_SRC_PATH"
+#define FT_INVALID_DST_PATH "FT_INVALID_DST_PATH"
+#define FT_NOT_WRITABLE_PATH "FT_NOT_WRITABLE_PATH"
+#define FT_INVALID_DST_MAC "FT_INVALID_DST_MAC"
+#define FT_INVALID_FILE_SIZE "FT_INVALID_FILE_SIZE"
+#define FT_NOT_FOUND "not found"
+#define FT_INVALID_FILE_NAME "invalid file name"
+#define FT_FILE_SIZE_EXCEED "file size exceed"
+#define FT_START "start"
+#define FT_INVALID_DST "invalid_dst"
+#define FT_NVRAM "nvram"
+#define FT_TMP "tmp"
 
 typedef struct _DeviceChangeEvent {
     uint32_t     deviceIndex;
