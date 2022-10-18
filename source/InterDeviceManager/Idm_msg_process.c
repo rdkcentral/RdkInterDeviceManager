@@ -558,7 +558,7 @@ void IDM_SFT_receive(connection_info_t* conn_info,payload_t* payload)
                 SSL_write(conn_info->enc.ssl,"not found",strlen("not found"));
             }
 #else
-            send(conn_info->conn,"not found",strlen("not found"));
+            send(conn_info->conn,"not found",strlen("not found"),0);
 #endif
             return;
         }
