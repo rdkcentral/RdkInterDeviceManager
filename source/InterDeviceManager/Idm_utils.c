@@ -45,8 +45,6 @@ token_t sysevent_token;
 #define SYS_IP_ADDR                 "127.0.0.1"
 #define IDM_SYSNAME_SND          "IDM"
 #define SYSEVENT_OPEN_MAX_RETRIES   6
-#define MESH_INTERFACE_STATUS     "mesh_wan_linkstatus"
-#define MESH_INTERFACE_STATUS_UP  "up"
 
 
 extern ANSC_HANDLE  bus_handle;
@@ -279,25 +277,11 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
     struct  ifreq ifr;
     int      fd = -1;
 
-    /* Wait for mesh */
-    CcspTraceInfo(("[%s: %d] Wait for mesh to come up\n", __FUNCTION__, __LINE__));
-    char meshStatus[32] = {0};
-
-    do
-    {
-        /* sysevent get of mesh status */
-        sysevent_get(sysevent_fd, sysevent_token, MESH_INTERFACE_STATUS, meshStatus, sizeof(meshStatus));
-        sleep(2);
-
-    } while(strcmp(meshStatus, MESH_INTERFACE_STATUS_UP) != 0);
-
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
     {
         return  ANSC_STATUS_FAILURE;
     }
-
-
 
     if (( fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
     {
