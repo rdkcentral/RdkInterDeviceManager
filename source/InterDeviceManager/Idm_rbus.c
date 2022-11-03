@@ -87,7 +87,7 @@ rbusDataElement_t idmRmPublishElements[] = {
     {DM_REMOTE_DEVICE_MODEL_NUM, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}},
     {RM_NEW_DEVICE_FOUND, RBUS_ELEMENT_TYPE_EVENT, { NULL, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}},
     {RM_NUM_ENTRIES, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, NULL, NULL, NULL, idmDmPublishEventHandler, NULL}},
-    {RM_PORT, RBUS_ELEMENT_TYPE_PROPERTY, { X_RDK_Remote_Device_GetHandler, X_RDK_Remote_Device_SetHandler, NULL, NULL, NULL, NULL}},
+    {RM_PORT, RBUS_ELEMENT_TYPE_PROPERTY |RBUS_ELEMENT_TYPE_EVENT, { X_RDK_Remote_Device_GetHandler, X_RDK_Remote_Device_SetHandler, NULL, NULL, idmDmPublishEventHandler, NULL}},
 };
 
 //2. local data
@@ -96,8 +96,8 @@ rbusDataElement_t idmConnHcElements[] = {
     {DM_CONN_HELLO_IPV4SUBNET_LIST, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, NULL, NULL, NULL, NULL, NULL}},
     {DM_CONN_HELLO_IPV6SUBNET_LIST, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, NULL, NULL, NULL, NULL, NULL}},
     {DM_CONN_DETECTION_WINDOW, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}},
-    {DM_CONN_INTF, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}},
-    {DM_CONN_PORT, RBUS_ELEMENT_TYPE_PROPERTY, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, NULL, NULL}},
+    {DM_CONN_INTF, RBUS_ELEMENT_TYPE_PROPERTY | RBUS_ELEMENT_TYPE_EVENT, {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, idmDmPublishEventHandler, NULL}},
+    {DM_CONN_PORT, RBUS_ELEMENT_TYPE_PROPERTY |RBUS_ELEMENT_TYPE_EVENT , {X_RDK_Connection_GetHandler, X_RDK_Connection_SetHandler, NULL, NULL, idmDmPublishEventHandler, NULL}},
     {DM_REMOTE_DEVICE_FT_SIZE, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}}
 };
 
@@ -253,6 +253,14 @@ rbusError_t idmDmPublishEventHandler(rbusHandle_t handle, rbusEventSubAction_t a
     char *subscribe_action = NULL;
 
     CcspTraceInfo(("%s %d - Event %s has been subscribed from subscribed\n", __FUNCTION__, __LINE__,eventName ));
+    /* Subscription is NOT supported for below DMs */
+    if((strcmp(eventName, RM_PORT) == 0) ||
+       (strcmp(eventName, DM_CONN_INTF) == 0) ||
+       (strcmp(eventName, DM_CONN_PORT) == 0))
+    {
+        CcspTraceWarning(("%s %d - Event %s subscribe not allowed\n", __FUNCTION__, __LINE__,eventName ));
+        return RBUS_ERROR_ACCESS_NOT_ALLOWED;
+    }
     subscribe_action = action == RBUS_EVENT_ACTION_SUBSCRIBE ? "subscribe" : "unsubscribe";
     CcspTraceInfo(("%s %d - action=%s \n", __FUNCTION__, __LINE__, subscribe_action ));
     updteSubscriptionStatus(eventName, &sidmRmSubStatus);

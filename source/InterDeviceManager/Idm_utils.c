@@ -35,7 +35,7 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include "Idm_rbus.h"
-
+#include <ifaddrs.h>
 #include <sysevent/sysevent.h>
 #include <syscfg/syscfg.h>
 
@@ -292,6 +292,20 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
     memset(&ifr, 0x00, sizeof(ifr));
     strcpy(ifr.ifr_name, pidmDmlInfo->stConnectionInfo.Interface);
 
+    /*Local device info will be stored in first entry */
+    IDM_REMOTE_DEVICE_LINK_INFO *localDevice = NULL;
+    localDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
+    if (localDevice)
+    {
+        CcspTraceInfo(("[%s: %d] Update Local Device Data \n", __FUNCTION__, __LINE__));
+        /* get Interface MAC */
+        platform_hal_GetBaseMacAddress(localDevice->stRemoteDeviceInfo.MAC);
+        platform_hal_GetModelName(localDevice->stRemoteDeviceInfo.ModelNumber);
+        strcpy(localDevice->stRemoteDeviceInfo.Capabilities, pidmDmlInfo->stConnectionInfo.Capabilities);
+        localDevice->stRemoteDeviceInfo.HelloInterval = pidmDmlInfo->stConnectionInfo.HelloInterval;
+    }
+
+    localDevice = NULL;
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
 
     /*Wait for interface to get valid IP */
@@ -317,14 +331,11 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
         return  ANSC_STATUS_FAILURE;
     }
     /*Local device info will be stored in first entry */
-    IDM_REMOTE_DEVICE_LINK_INFO *localDevice = NULL;
     localDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
     if (localDevice)
     {
         struct in_addr netMask, ip_addr;
 
-        /* get Interface MAC */
-        platform_hal_GetBaseMacAddress(localDevice->stRemoteDeviceInfo.MAC);
 
         ioctl(fd, SIOCGIFHWADDR, &ifr);
 
@@ -342,14 +353,23 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
 
         //TODO: Update IPv6 address
         close(fd);
+        /* get Ipv6 address */
+        struct ifaddrs *ifap, *ifa;
+
+        getifaddrs (&ifap);
+        for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+            if (ifa->ifa_addr && !strcmp(ifa->ifa_name, pidmDmlInfo->stConnectionInfo.Interface) && ifa->ifa_addr->sa_family==AF_INET6)
+            {
+                    struct sockaddr_in6 *in6 = (struct sockaddr_in6*) ifa->ifa_addr;
+                    inet_ntop(AF_INET6, &in6->sin6_addr, localDevice->stRemoteDeviceInfo.IPv6, sizeof(localDevice->stRemoteDeviceInfo.IPv6));
+            }
+        }
+        freeifaddrs(ifap);
 
 
-        platform_hal_GetModelName(localDevice->stRemoteDeviceInfo.ModelNumber);
-        strcpy(localDevice->stRemoteDeviceInfo.Capabilities, pidmDmlInfo->stConnectionInfo.Capabilities);
-        localDevice->stRemoteDeviceInfo.HelloInterval = pidmDmlInfo->stConnectionInfo.HelloInterval;
-
-        CcspTraceInfo(("[%s: %d] MAC :%s, IP: %s, Model: %s, Capabilities: %s HelloInterval %d msec\n", __FUNCTION__, __LINE__,localDevice->stRemoteDeviceInfo.MAC,
-                    localDevice->stRemoteDeviceInfo.IPv4, localDevice->stRemoteDeviceInfo.ModelNumber,localDevice->stRemoteDeviceInfo.Capabilities, localDevice->stRemoteDeviceInfo.HelloInterval));
+        CcspTraceInfo(("[%s: %d] Local device Info\nMAC :%s,\nIP: %s,\nIPv6: %s,\nModel: %s, \nCapabilities: %s \nHelloInterval %d msec\n", __FUNCTION__, __LINE__,
+                    localDevice->stRemoteDeviceInfo.MAC,localDevice->stRemoteDeviceInfo.IPv4, localDevice->stRemoteDeviceInfo.IPv6, 
+                    localDevice->stRemoteDeviceInfo.ModelNumber, localDevice->stRemoteDeviceInfo.Capabilities, localDevice->stRemoteDeviceInfo.HelloInterval));
     }
     else
     {
