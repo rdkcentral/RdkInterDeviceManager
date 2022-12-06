@@ -68,6 +68,7 @@
 #define DM_REMOTE_DEVICE_FT_SIZE "Device.X_RDK_Remote.FileTransferMaxSize()"
 #define DM_REMOTE_DEVICE_FT_STATUS "Device.X_RDK_Remote.FileTransferStatus()"
 #define RM_PORT "Device.X_RDK_Remote.Port"
+#define IDM_DISCOVERY_RESTART "Device.X_RDK_Connection.Restart()"
 
 rbusHandle_t        rbusHandle;
 char                idmComponentName[32] = "IDM_RBUS";
@@ -109,7 +110,8 @@ rbusDataElement_t idmRmCapElements[] = {
         {DM_REMOTE_DEVICE_GET_FILE, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
         {DM_REMOTE_DEVICE_SEND_FILE, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
         {DM_REMOTE_DEVICE_FT_STATUS, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
-        {DM_REMOTE_DEVICE_INVOKE, RBUS_ELEMENT_TYPE_METHOD | RBUS_ELEMENT_TYPE_EVENT, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}}
+        {DM_REMOTE_DEVICE_INVOKE, RBUS_ELEMENT_TYPE_METHOD | RBUS_ELEMENT_TYPE_EVENT, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
+        {IDM_DISCOVERY_RESTART, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
     };
 
 ANSC_STATUS Idm_Create_Rbus_Obj()
@@ -785,6 +787,22 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
     else if(strcmp(methodName,"Device.X_RDK_Remote.FileTransferStatus()") == 0)
     {
         CcspTraceInfo(("status of last file transfer = %s\n", pidmDmlInfo->stRemoteInfo.ft_status));
+    }
+    else if(strcmp(methodName, IDM_DISCOVERY_RESTART) == 0 )
+    {
+        rbusValue_t value;
+        bool restart = false;
+
+        value = rbusObject_GetValue(inParams, "Restart");
+        restart = (bool)rbusValue_GetBoolean(value);
+        if(restart)
+        {
+            CcspTraceInfo(("Inside %s:%d dest Restarting IDM \n",__FUNCTION__,__LINE__));
+            pidmDmlInfo->stConnectionInfo.Restart = TRUE;
+            IDM_Stop_Device_Discovery();
+        }
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+        return RBUS_ERROR_SUCCESS;
     }
     else
     {

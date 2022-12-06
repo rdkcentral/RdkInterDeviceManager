@@ -297,7 +297,7 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
     localDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
     if (localDevice)
     {
-        CcspTraceInfo(("[%s: %d] Update Local Device Data \n", __FUNCTION__, __LINE__));
+        CcspTraceInfo(("[%s: %d] Update Local Device Data. Iface(%s)\n", __FUNCTION__, __LINE__, pidmDmlInfo->stConnectionInfo.Interface));
         /* get Interface MAC */
         platform_hal_GetBaseMacAddress(localDevice->stRemoteDeviceInfo.MAC);
         platform_hal_GetModelName(localDevice->stRemoteDeviceInfo.ModelNumber);
@@ -307,21 +307,54 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
 
     localDevice = NULL;
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+    pidmDmlInfo =NULL;
 
     /*Wait for interface to get valid IP */
     CcspTraceInfo(("[%s: %d] Wait for interface to get valid IP \n", __FUNCTION__, __LINE__));
     ifr.ifr_addr.sa_family = AF_INET;
-    while(ioctl(fd, SIOCGIFADDR, &ifr) < 0)
+    while(TRUE)
     {
+        if(ioctl(fd, SIOCGIFADDR, &ifr) >= 0)
+        {
+            break;
+        }
+        pidmDmlInfo = IdmMgr_GetConfigData_locked();
+        if(pidmDmlInfo)
+        {
+            if(pidmDmlInfo->stConnectionInfo.Restart)
+            {
+                pidmDmlInfo->stConnectionInfo.Restart = FALSE;
+                IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+                return ANSC_STATUS_DO_IT_AGAIN;
+            }
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            pidmDmlInfo =NULL;
+        }
         sleep(2);
     }
 
     /* Wait for interface to come up */
     CcspTraceInfo(("[%s: %d] Wait for interface to come up\n", __FUNCTION__, __LINE__));
-    ioctl(fd, SIOCGIFFLAGS, &ifr);
-    while(!((ifr.ifr_flags & ( IFF_UP | IFF_BROADCAST )) == ( IFF_UP | IFF_BROADCAST )))
+    while(TRUE)
     {
         ioctl(fd, SIOCGIFFLAGS, &ifr);
+        if((ifr.ifr_flags & ( IFF_UP | IFF_BROADCAST )) == ( IFF_UP | IFF_BROADCAST ))
+        {
+            break;
+        }
+
+        pidmDmlInfo = IdmMgr_GetConfigData_locked();
+        if(pidmDmlInfo)
+        {
+            if(pidmDmlInfo->stConnectionInfo.Restart)
+            {
+                pidmDmlInfo->stConnectionInfo.Restart = FALSE;
+                IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+                return ANSC_STATUS_DO_IT_AGAIN;
+            }
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            pidmDmlInfo =NULL;
+        }
         sleep(2);
     }
 
@@ -351,7 +384,6 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
         sprintf(pidmDmlInfo->stConnectionInfo.HelloIPv4SubnetList,"%s/%u", inet_ntoa(netMask), cidrMask(((struct sockaddr_in *)&ifr.ifr_netmask)->sin_addr.s_addr));
         CcspTraceInfo(("[%s: %d] HelloIPv4SubnetList %s \n", __FUNCTION__, __LINE__,pidmDmlInfo->stConnectionInfo.HelloIPv4SubnetList));
 
-        //TODO: Update IPv6 address
         close(fd);
         /* get Ipv6 address */
         struct ifaddrs *ifap, *ifa;

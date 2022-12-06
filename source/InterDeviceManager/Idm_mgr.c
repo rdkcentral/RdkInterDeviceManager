@@ -65,13 +65,6 @@ ANSC_STATUS Idm_Init()
     }
     CcspTraceInfo(("%s %d - IDM sysevent initialisation success\n", __FUNCTION__, __LINE__));
 
-    //TODO: Wait for mesh network
-    if(IDM_UpdateLocalDeviceData()== ANSC_STATUS_FAILURE)
-    {
-       CcspTraceInfo(("%s %d - IDM UpdateLocalDeviceData initialisation Failed\n", __FUNCTION__, __LINE__));
-    }
-    
-    CcspTraceInfo(("%s %d - IDM UpdateLocalDeviceData success\n", __FUNCTION__, __LINE__));
 
     if(IDM_Start_Device_Discovery() == ANSC_STATUS_FAILURE)
     {

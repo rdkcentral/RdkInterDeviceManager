@@ -441,33 +441,74 @@ void start_discovery_thread(void)
     CcspTraceInfo(("%s %d - \n", __FUNCTION__, __LINE__));
 
     pthread_detach(pthread_self());
-    discovery_config_t discoveryConf;
+    int n = 0;
+    struct timeval tv;
 
-    memset (&discoveryConf, 0, sizeof(discovery_config_t));
-
-    /* Update discovery_config deatils */
-    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
-    if(pidmDmlInfo != NULL)
+    while(TRUE)
     {
-        discoveryConf.discovery_interval = (pidmDmlInfo->stConnectionInfo.HelloInterval / 1000);
+        /* Wait up to 500 milliseconds */
+        tv.tv_sec = 0;
+        tv.tv_usec = 500000;
 
-        strncpy(discoveryConf.interface, pidmDmlInfo->stConnectionInfo.Interface,sizeof(discoveryConf.interface));
-        discoveryConf.loss_detection_window = (pidmDmlInfo->stConnectionInfo.DetectionWindow /1000);//TODO: update
-        discoveryConf.port = pidmDmlInfo->stConnectionInfo.Port;
-        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+        n = select(0, NULL, NULL, NULL, &tv);
+        if (n < 0)
+        {
+            /* interrupted by signal or something, continue */
+            continue;
+        }
+
+        ANSC_STATUS retValue = ANSC_STATUS_FAILURE;
+        retValue = IDM_UpdateLocalDeviceData();
+        if(retValue != ANSC_STATUS_SUCCESS)
+        {
+            if(retValue == ANSC_STATUS_FAILURE)
+            {
+                CcspTraceError(("%s %d - IDM UpdateLocalDeviceData initialisation Failed. Retry ...\n", __FUNCTION__, __LINE__));
+            }
+            else if(retValue == ANSC_STATUS_DO_IT_AGAIN)
+            {
+                CcspTraceInfo(("%s %d - IDM Restart triggered. Update current interface details. \n", __FUNCTION__, __LINE__));
+            } 
+            continue;
+        }
+        CcspTraceInfo(("%s %d - IDM UpdateLocalDeviceData success\n", __FUNCTION__, __LINE__));
+
+        discovery_config_t discoveryConf;
+
+        memset (&discoveryConf, 0, sizeof(discovery_config_t));
+
+        /* Update discovery_config deatils */
+        PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+        if(pidmDmlInfo != NULL)
+        {
+            discoveryConf.discovery_interval = (pidmDmlInfo->stConnectionInfo.HelloInterval / 1000);
+
+            strncpy(discoveryConf.interface, pidmDmlInfo->stConnectionInfo.Interface,sizeof(discoveryConf.interface));
+            discoveryConf.loss_detection_window = (pidmDmlInfo->stConnectionInfo.DetectionWindow /1000);
+            discoveryConf.port = pidmDmlInfo->stConnectionInfo.Port;
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            pidmDmlInfo = NULL;
+        }
+        platform_hal_GetBaseMacAddress(discoveryConf.base_mac);
+
+        CcspTraceInfo(("%s %d: starting discovery process with base MAC: %s\n", __FUNCTION__, __LINE__, discoveryConf.base_mac));
+
+        /* restart Firewall to add iptable rules for current IDM Interface */
+        sysevent_set(sysevent_fd, sysevent_token, SYSEVENT_FIREWALL_RESTART, NULL, 0);
+
+        /*Start CAL Device discovery process */
+        start_discovery(&discoveryConf, discovery_cb);
+        CcspTraceInfo(("%s %d - IDm device discovery completed.\n", __FUNCTION__, __LINE__));
+
+        pidmDmlInfo = IdmMgr_GetConfigData_locked();
+        if(pidmDmlInfo != NULL)
+        {
+            /* Reset Restart flag to false */
+            pidmDmlInfo->stConnectionInfo.Restart = FALSE;
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            pidmDmlInfo = NULL;
+        }
     }
-    platform_hal_GetBaseMacAddress(discoveryConf.base_mac);
-
-    CcspTraceInfo(("%s %d: starting discovery process with base MAC: %s\n", __FUNCTION__, __LINE__, discoveryConf.base_mac));
-
-    /*Start CAL Device discovery process */
-    if(start_discovery(&discoveryConf, discovery_cb) !=0)
-    {
-        CcspTraceInfo(("%s %d - start_discovery start failed\n", __FUNCTION__, __LINE__));
-        pthread_exit(NULL);
-        return 0;
-    }
-
     pthread_exit(NULL);
     return 0;
 }
@@ -475,8 +516,6 @@ ANSC_STATUS IDM_Start_Device_Discovery()
 {
     pthread_t                threadId, discovery_threadId;
     int                      iErrorCode     = 0;
-
-    //TODO: Wait for mesh interface
 
     /* Start incoming req handler thread */
     iErrorCode = pthread_create( &threadId, NULL, &IDM_Incoming_req_handler_thread, NULL);
@@ -490,8 +529,6 @@ ANSC_STATUS IDM_Start_Device_Discovery()
         CcspTraceInfo(("%s %d - IDM Incoming_req_handler_thread Started Successfully\n", __FUNCTION__, __LINE__ ));
     }
 
-    /* restart Firewall */
-    sysevent_set(sysevent_fd, sysevent_token, SYSEVENT_FIREWALL_RESTART, NULL, 0);
 
     /* Start incoming start_discovery thread */
     iErrorCode = pthread_create( &discovery_threadId, NULL, &start_discovery_thread, NULL);
@@ -507,3 +544,17 @@ ANSC_STATUS IDM_Start_Device_Discovery()
 
     return ANSC_STATUS_SUCCESS;
 }
+
+ANSC_STATUS IDM_Stop_Device_Discovery()
+{
+    CcspTraceInfo(("%s %d - called\n", __FUNCTION__, __LINE__ ));
+    if(stop_discovery() !=0)
+    {
+        CcspTraceError(("%s %d - stop_discovery failed\n", __FUNCTION__, __LINE__));
+        return ANSC_STATUS_FAILURE;
+    }
+
+    CcspTraceInfo(("%s %d - stop_discovery completed \n", __FUNCTION__, __LINE__));
+    return ANSC_STATUS_SUCCESS;
+}
+

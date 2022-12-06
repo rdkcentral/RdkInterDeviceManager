@@ -207,6 +207,7 @@ void IdmMgr_SetConfigData_Default()
         strncpy(pidmDmlInfo->stConnectionInfo.Interface, DEFAULT_BC_INTF, sizeof(pidmDmlInfo->stConnectionInfo.Interface));
         pidmDmlInfo->stConnectionInfo.DetectionWindow = DEFAULT_DETECTION_WINDOW;
         pidmDmlInfo->stConnectionInfo.Port = IDM_DEFAULT_DEVICE_BROADCAST_PORT;
+        pidmDmlInfo->stConnectionInfo.Restart = FALSE;
         // Initially the remote table will have a single entry with local device info
         pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries = 0;
         pidmDmlInfo->stRemoteInfo.Port = IDM_DEVICE_MESSAGING_PORT;
