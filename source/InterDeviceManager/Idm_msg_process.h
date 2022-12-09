@@ -63,7 +63,6 @@ typedef enum _IDM_MSG_TYPE
 {
     REQ = 1,
     RES,
-    REQ_FT,
 }IDM_MSG_TYPE;
 
 typedef struct _idm_send_msg_Params
@@ -87,6 +86,7 @@ typedef struct _payload
     uint reqID;
     uint timeout;
     ANSC_STATUS status;
+    int file_length;
     char param_name[128];
     enum dataType_e type;
     char param_value[2048];
@@ -104,6 +104,7 @@ typedef  struct _RecvReqList
     char pComponent_name[128];
     char pBus_path[128];
     uint timeout;
+    int file_length;
     struct _RecvReqList *next;
     enum dataType_e type;
 }RecvReqList;

@@ -419,8 +419,8 @@ int getFile_to_remote(connection_info_t* conn_info,void *payload)
     buffer = (char*)malloc (256);
     memset(buffer,0,256);
     if(buffer){
-        sprintf(buffer,"%zu",length);
-        strncpy_s(Data->param_value,sizeof(Data->param_value),buffer,strlen(buffer));
+sprintf(buffer,"%zu",length);
+strncpy_s(Data->param_value,sizeof(Data->param_value),buffer,strlen(buffer));
 #ifndef IDM_DEBUG
         if(conn_info->enc.ssl == NULL){
             CcspTraceError(("(%s:%d) SSL CTX is NULL, Data send failed\n", __FUNCTION__, __LINE__));
@@ -468,11 +468,17 @@ int getFile_to_remote(connection_info_t* conn_info,void *payload)
 int sendFile_to_remote(connection_info_t* conn_info,void *payload,char* output_location)
 {
     CcspTraceDebug(("Inside %s %d\n",__FUNCTION__,__LINE__));
-    char* buffer;
     FILE* fptr;
     size_t length;
     payload_t *Data;
-    int retry = 0,bytes = 0,push_start = 0,rc=-1,ind=-1;
+    int bytes = 0;
+#ifndef IDM_DEBUG
+    if(conn_info->enc.ssl == NULL)
+    {
+        CcspTraceError(("(%s:%d) SSL CTX is NULL, Data send failed\n", __FUNCTION__, __LINE__));
+        return FT_ERROR;
+    }
+#endif
     Data = (payload_t*)payload;
     fptr = fopen(Data->param_name,"rb");
     CcspTraceInfo(("Inside %s:%d file name=%s\n",__FUNCTION__,__LINE__,Data->param_name));
@@ -499,121 +505,38 @@ int sendFile_to_remote(connection_info_t* conn_info,void *payload,char* output_l
         return FT_INVALID_FILE_SIZE;
     }
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
-    buffer = (char*)malloc (256);
-    memset(buffer,0,256);
-    if(buffer)
-    {
-        sprintf(buffer,"%zu",length);
-        strncpy_s(Data->param_value,sizeof(Data->param_value),buffer,strlen(buffer));
-        strcpy_s(Data->param_name,sizeof(Data->param_name),output_location);
-        CcspTraceInfo(("%s:%d output file name = %s\n",__FUNCTION__,__LINE__,Data->param_name));
+    Data->file_length=(int)length;
+    strcpy_s(Data->param_name,sizeof(Data->param_name),output_location);
+    fread (Data->param_value, 1, length, fptr);
+    fclose(fptr);
+    CcspTraceDebug(("%s:%d output file name = %s length=%zu length in Data=%d\nData->param_value=%s\n",__FUNCTION__,__LINE__,Data->param_name,length,Data->file_length,Data->param_value));
 #ifndef IDM_DEBUG
-        if (conn_info->enc.ctx != NULL && conn_info->enc.ssl != NULL)
+    if (conn_info->enc.ssl != NULL)
+    {
+        if ((bytes = SSL_write(conn_info->enc.ssl, Data, sizeof(payload_t))) > 0)
         {
-            if ((bytes = SSL_write(conn_info->enc.ssl, Data, sizeof(payload_t))) > 0)
-            {
-                push_start=1;
-            }
-            else
-            {
-                CcspTraceError(("%s:%d length and file data is not transformed\n",__FUNCTION__,__LINE__));
-                free(buffer);
-                return FT_ERROR;
-            }
-        }
-        else
-        {
-            CcspTraceError(("%s:%d ssl session is null\n",__FUNCTION__,__LINE__));
-            free(buffer);
-            return FT_ERROR;
-        }
 #else
+   if(conn_info->conn != NULL)
+   {
         if(send(conn_info->conn, Data,sizeof(payload_t), 0) > 0)
         {
-            push_start=1;
+#endif
+            CcspTraceDebug(("bytes written = %d and length=%d\n",bytes,(int)length));
         }
         else
         {
-            CcspTraceError(("%s %d - send failed failed : %s\n",  __FUNCTION__, __LINE__, strerror(errno)));
-            free(buffer);
+            CcspTraceError(("%s:%d length and file data is not transformed\n",__FUNCTION__,__LINE__));
             return FT_ERROR;
         }
-#endif
-start:
-        if(push_start == 1 && length > 0)
-        {
-            free(buffer);
-            buffer =(char*)malloc(strlen(FT_FILE_SIZE_EXCEED)+1);
-#ifndef IDM_DEBUG
-            bytes = SSL_read(conn_info->enc.ssl, buffer,strlen(FT_FILE_SIZE_EXCEED));
-#else
-            bytes = read( conn_info->conn , buffer, strlen(FT_FILE_SIZE_EXCEED));
-#endif
-            CcspTraceDebug(("%s:%d buffer=%s\n",__FUNCTION__,__LINE__,buffer));
-            rc = strcmp_s(FT_START,strlen(FT_START),buffer,&ind);
-            ERR_CHK(rc);
-            if((!ind) && (rc == EOK))
-            {
-                free(buffer);
-                buffer =(char*)malloc(length);
-                fread (buffer, 1, length, fptr);
-#ifndef IDM_DEBUG
-                if((bytes = SSL_write(conn_info->enc.ssl, buffer,length)) <= 0)
-                {
-                    CcspTraceError(("%s:%d file data is not transformed\n",__FUNCTION__,__LINE__));
-                }
-#else
-                if (( bytes = send(conn_info->conn,buffer,length,0) ) <= 0 )
-                {
-                    CcspTraceError(("file data is not transformed\n"));
-                }
-#endif
-                CcspTraceDebug(("bytes written = %d and length=%d\n",bytes,(int)length));
-            }
-            else
-            {
-                rc = strcmp_s(FT_NOT_FOUND,strlen(FT_NOT_FOUND),buffer,&ind);
-                ERR_CHK(rc);
-                if((!ind) && (rc == EOK))
-                {
-                    CcspTraceError(("not able to create destination file in the peer device\n"));
-                    return FT_NOT_WRITABLE_PATH;
-                }
-                else
-                {
-                    rc = strcmp_s(FT_FILE_SIZE_EXCEED,strlen(FT_FILE_SIZE_EXCEED),buffer,&ind);
-                    ERR_CHK(rc);
-                    if((!ind) && (rc == EOK))
-                    {
-                        CcspTraceError(("%s:%d file size exceed in peer device\n",__FUNCTION__,__LINE__));
-                        return FT_INVALID_FILE_SIZE;
-                    }
-                    else
-                    {
-                        rc = strcmp_s(FT_INVALID_DST,strlen(FT_INVALID_DST),buffer,&ind);
-                        ERR_CHK(rc);
-                        if((!ind) && (rc == EOK))
-                        {
-                            CcspTraceError(("not able to create destination file in the peer device because of parent folder is not from tmp or nvram\n"));
-                            return FT_INVALID_DST_PATH;
-                        }
-                    }
-                }
-                CcspTraceInfo(("peer device does not given acknowledge so retry for 30 times\n"));
-                if(retry < 30)
-                {
-                    retry++;
-                    goto start;
-                }
-                else if(retry == 30)
-                {
-                    return FT_ERROR;
-                }
-            }
-        }
+    }
+    else
+    {
+        CcspTraceError(("%s:%d ssl session/conn is null\n",__FUNCTION__,__LINE__));
+        return FT_ERROR;
     }
     return FT_SUCCESS;
 }
+
 int send_remote_message(connection_info_t* conn_info,void *payload)
 {
 #ifndef IDM_DEBUG

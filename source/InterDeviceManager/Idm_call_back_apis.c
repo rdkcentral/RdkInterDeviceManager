@@ -69,7 +69,7 @@ int rcv_message_cb( connection_info_t* conn_info, void *payload)
     {
         IDM_Incoming_Response_handler(recvData);
     }
-    else if(recvData->msgType == SFT)
+    else if(recvData->operation == SFT)
     {
         PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
         if( pidmDmlInfo == NULL )
@@ -78,11 +78,12 @@ int rcv_message_cb( connection_info_t* conn_info, void *payload)
             strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,FT_ERROR);
             return 1;
         }
-        strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,IDM_SFT_receive(conn_info,recvData));
+        strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,recvData->param_value);
+        CcspTraceInfo(("%s:%d status=%s\n",__FUNCTION__,__LINE__,pidmDmlInfo->stRemoteInfo.ft_status));
         Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     }
-    else if(recvData->msgType == GFT)
+    else if(recvData->operation == GFT)
     {
         PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
         if( pidmDmlInfo == NULL )
