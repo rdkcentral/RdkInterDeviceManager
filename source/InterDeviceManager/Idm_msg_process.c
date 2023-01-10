@@ -167,7 +167,7 @@ ANSC_STATUS IDM_sendFile_to_Remote_device(char* Mac_dest,char* filename,char* ou
                 payload_t payload;
                 memset(&payload, 0, sizeof(payload_t));
                 payload.operation = SFT;
-                payload.msgType = REQ;
+                payload.msgType = SFT;
                 strncpy(payload.Mac_source, localDevice->stRemoteDeviceInfo.MAC,MAC_ADDR_SIZE);
                 strncpy(payload.param_name,filename,sizeof(payload.param_name));
                 CcspTraceDebug(("Inside %s:%d peer MAC=%s\n",__FUNCTION__,__LINE__,Mac_dest,localDevice->stRemoteDeviceInfo.MAC));
@@ -405,6 +405,12 @@ char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
         }
         else{
             buf = (char*) malloc(total_bytes);
+            if(buf == NULL)
+            {
+                fclose(fptr);
+                CcspTraceError(("malloc failed to allocate memory\n"));
+                return FT_ERROR;
+            }
             while(length<total_bytes){
 #ifndef IDM_DEBUG
                 if(conn_info->enc.ssl != NULL){
@@ -632,6 +638,11 @@ char* IDM_SFT_receive(connection_info_t* conn_info,void* payload)
     CcspTraceDebug(("Inside %s:%d\n",__FUNCTION__,__LINE__));
     char* buf;
     int bytes=0,length=0,total_bytes=0;
+#ifndef IDM_DEBUG
+    SSL* ssl= NULL;
+#else
+    int conn=0;
+#endif
     payload_t *Data;
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
@@ -640,23 +651,41 @@ char* IDM_SFT_receive(connection_info_t* conn_info,void* payload)
         return  FT_ERROR;
     }
     Data = (payload_t*)payload;
-
     if(Data != NULL)
     {
+        Data->operation = SFT_RES;
         IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
         total_bytes=Data->file_length;
         CcspTraceDebug(("%s file with size total_bytes=%d file length=%d param_value=%s\n",Data->param_name,total_bytes,Data->file_length,Data->param_value));
+        while(remoteDevice!=NULL)
+        {
+            if(strcasecmp(remoteDevice->stRemoteDeviceInfo.MAC,Data->Mac_source) == 0 && (remoteDevice->stRemoteDeviceInfo.Status == DEVICE_CONNECTED ))
+            {
+#ifndef IDM_DEBUG
+                if(remoteDevice->stRemoteDeviceInfo.conn_info.enc.ssl != NULL)
+                {
+                    ssl = remoteDevice->stRemoteDeviceInfo.conn_info.enc.ssl;
+                }
+#else
+                if(remoteDevice->stRemoteDeviceInfo.conn_info.conn != 0)
+                {
+                    conn = remoteDevice->stRemoteDeviceInfo.conn_info.conn;
+                }
+#endif
+            }
+            remoteDevice=remoteDevice->next;
+        }
         if(total_bytes > (pidmDmlInfo->stRemoteInfo.max_file_size))
         {
             CcspTraceError(("%s:%d total_bytes is greater than configured max file size = %d\n",__FUNCTION__,__LINE__,pidmDmlInfo->stRemoteInfo.max_file_size));
             strncpy_s(Data->param_value,sizeof(Data->param_value),FT_INVALID_FILE_SIZE,strlen(FT_INVALID_FILE_SIZE));
             CcspTraceDebug(("%s:%d Data->operation=%d Data->param_value=%s \n",__FUNCTION__,__LINE__,Data->operation,Data->param_value));
 #ifndef IDM_DEBUG
-            if(conn_info->enc.ssl != NULL)
+            if(ssl != NULL)
             {
-                if(bytes = (SSL_write(conn_info->enc.ssl,Data,sizeof(payload_t))) <= 0 )
+                if(bytes = (SSL_write(ssl,Data,sizeof(payload_t))) <= 0 )
 #else
-                    if(bytes = (send(conn_info->conn,Data,sizeof(payload_t),0)) <= 0 )
+                    if(bytes = (send(conn,Data,sizeof(payload_t),0)) <= 0 )
 #endif
                     {
                         CcspTraceError(("%s:%d file size information not exchanged to peer device\n",__FUNCTION__,__LINE__));
@@ -701,32 +730,66 @@ char* IDM_SFT_receive(connection_info_t* conn_info,void* payload)
                 strncpy_s(Data->param_value,sizeof(Data->param_value),FT_INVALID_DST_PATH,strlen(FT_INVALID_DST_PATH));
                 CcspTraceDebug(("%s:%d Data->operation=%d Data->param_value%s\n",__FUNCTION__,__LINE__,Data->operation,Data->param_value));
 #ifndef IDM_DEBUG
-                if(conn_info->enc.ssl != NULL)
+                if(ssl != NULL)
                 {
-                    SSL_write(conn_info->enc.ssl,Data,sizeof(payload_t));
+                    SSL_write(ssl,Data,sizeof(payload_t));
                 }
 #else
-                send(conn_info->conn,Data,sizeof(payload_t),0);
+                send(conn,Data,sizeof(payload_t),0);
 #endif
                 return FT_INVALID_DST_PATH;
             }
 #ifndef IDM_DEBUG
             strncpy_s(Data->param_value,sizeof(Data->param_value),FT_NOT_WRITABLE_PATH,strlen(FT_NOT_WRITABLE_PATH));            
             CcspTraceDebug(("%s:%d Data->operation=%d Data->param_value%s\n",__FUNCTION__,__LINE__,Data->operation,Data->param_value));
-            if(conn_info->enc.ssl != NULL)
+            if(ssl != NULL)
             {
-                SSL_write(conn_info->enc.ssl,Data,sizeof(payload_t));
+                SSL_write(ssl,Data,sizeof(payload_t));
             }
 #else
-            send(conn_info->conn,Data,sizeof(payload_t),0);
+            send(conn,Data,sizeof(payload_t),0);
 #endif
             return FT_NOT_WRITABLE_PATH;
         }
         else
         {
-            fwrite(Data->param_value,total_bytes,1,fptr);
+            buf = (char*) malloc(total_bytes);
+            if(buf == NULL)
+            {
+                fclose(fptr);
+                CcspTraceError(("malloc failed to allocate memory\n"));
+                return FT_ERROR;
+            }
+            while(length<total_bytes){
+#ifndef IDM_DEBUG
+                if(conn_info->enc.ssl != NULL){
+                    bytes = SSL_read(conn_info->enc.ssl, buf, total_bytes-bytes);
+                }
+                else{
+                    CcspTraceError(("%s:%d ssl session is null\n",__FUNCTION__,__LINE__));
+                    fclose(fptr);
+                    if(buf){
+                        free(buf);
+                    }
+                    return FT_ERROR;
+                }
+#else
+                bytes = read( conn_info->conn , buf, total_bytes-bytes);
+#endif
+                CcspTraceInfo(("bytes transfered : %d\n",bytes));
+                if(bytes > 0){
+                    fwrite(buf,1,bytes,fptr);
+                    length+=bytes;
+                }
+                else{
+                    CcspTraceError(("(%s:%d) Data encryption failed (Err: %d)\n", __FUNCTION__, __LINE__,bytes));
+                }
+            }
+            if(buf){
+                free(buf);
+            }
+            fclose(fptr);
         }
-        fclose(fptr);
     }
     else
     {
@@ -877,40 +940,6 @@ void IDM_Incoming_req_handler_thread()
                         if(remoteDevice->stRemoteDeviceInfo.conn_info.conn !=0)
                         {
                             strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,getFile_to_remote(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload));
-                            Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
-                        }
-                        break;
-                    }
-                    remoteDevice=remoteDevice->next;
-                }
-                IdmMgrDml_GetConfigData_release(pidmDmlInfo);
-                free(ReqEntry);
-                pidmDmlInfo = NULL;
-                continue;
-            }else if(ReqEntry->operation == SFT)
-            {
-                pidmDmlInfo = IdmMgr_GetConfigData_locked();
-                if( pidmDmlInfo == NULL )
-                {
-                    strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,FT_ERROR);
-                    Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
-                }
-                IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
-                payload.reqID = ReqEntry->reqId;
-                payload.operation = ReqEntry->operation;
-                payload.msgType = SFT;
-                payload.file_length = ReqEntry->file_length;
-                strncpy(payload.Mac_source,remoteDevice->stRemoteDeviceInfo.MAC,MAC_ADDR_SIZE);
-                strncpy(payload.param_name,ReqEntry->param_name,sizeof(payload.param_name));
-                strncpy(payload.param_value,ReqEntry->param_value,sizeof(payload.param_value));
-                //Find the device using MAC
-                while(remoteDevice!=NULL)
-                {
-                    if(strcasecmp(remoteDevice->stRemoteDeviceInfo.MAC, ReqEntry->Mac_dest) == 0 && (remoteDevice->stRemoteDeviceInfo.Status == DEVICE_CONNECTED ))
-                    {
-                        if(remoteDevice->stRemoteDeviceInfo.conn_info.conn !=0)
-                        {
-                            strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,IDM_SFT_receive(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload));
                             Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
                         }
                         break;

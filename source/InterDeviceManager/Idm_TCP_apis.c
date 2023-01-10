@@ -417,26 +417,37 @@ int getFile_to_remote(connection_info_t* conn_info,void *payload)
     }
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     buffer = (char*)malloc (256);
-    memset(buffer,0,256);
-    if(buffer){
-sprintf(buffer,"%zu",length);
-strncpy_s(Data->param_value,sizeof(Data->param_value),buffer,strlen(buffer));
+    if(buffer)
+    {
+        memset(buffer,0,256);
+        sprintf(buffer,"%zu",length);
+        strncpy_s(Data->param_value,sizeof(Data->param_value),buffer,strlen(buffer));
 #ifndef IDM_DEBUG
         if(conn_info->enc.ssl == NULL){
             CcspTraceError(("(%s:%d) SSL CTX is NULL, Data send failed\n", __FUNCTION__, __LINE__));
             free(buffer);
+            fclose(fptr);
             return FT_ERROR;
         }
         if ((bytes = SSL_write(conn_info->enc.ssl, Data, sizeof(payload_t))) > 0)
         {
             free(buffer);
             buffer =(char*)malloc (length);
-            fread (buffer, 1, length, fptr);
-            if((bytes = SSL_write(conn_info->enc.ssl, buffer,length)) <= 0)
+            if(buffer)
             {
-                CcspTraceError(("file data is not transformed\n"));
+                fread (buffer, 1, length, fptr);
+                if((bytes = SSL_write(conn_info->enc.ssl, buffer,length)) <= 0)
+                {
+                    CcspTraceError(("file data is not transformed\n"));
+                }
+                CcspTraceDebug(("bytes written = %d and length=%d\n",bytes,(int)length));
             }
-            CcspTraceDebug(("bytes written = %d and length=%d\n",bytes,(int)length));
+            else
+            {
+                fclose(fptr);
+                CcspTraceError(("malloc failed to allocate memory\n"));
+                return FT_ERROR;
+            }
         }
         else
         {
@@ -446,16 +457,32 @@ strncpy_s(Data->param_value,sizeof(Data->param_value),buffer,strlen(buffer));
         if(send(conn_info->conn, Data, sizeof(payload_t), 0)<0){
             CcspTraceError(("%s %d - send failed failed : %s\n",  __FUNCTION__, __LINE__, strerror(errno)));
             free(buffer);
+            fclose(fptr);
             return FT_ERROR;
         }
         free(buffer);
         buffer =(char*)malloc (length);
-        fread (buffer, 1, length, fptr);
-        if((bytes = send(conn_info->conn, buffer,length,0))<=0){
-            CcspTraceError(("file data is not transformed through send\n"));
+        if(buffer)
+        {
+            fread (buffer, 1, length, fptr);
+            if((bytes = send(conn_info->conn, buffer,length,0))<=0){
+                CcspTraceError(("file data is not transformed through send\n"));
+            }
+            CcspTraceDebug(("bytes written = %d and length=%d through send\n",bytes,(int)length));
         }
-        CcspTraceDebug(("bytes written = %d and length=%d through send\n",bytes,(int)length));
+        else
+        {
+            fclose(fptr);
+            CcspTraceError(("malloc failed to allocate memory\n"));
+            return FT_ERROR;
+        }
 #endif
+    }
+    else
+    {
+        fclose(fptr);
+        CcspTraceError(("malloc failed to allocate memory\n"));
+        return FT_ERROR;
     }
     if(buffer)
     {
@@ -472,6 +499,7 @@ int sendFile_to_remote(connection_info_t* conn_info,void *payload,char* output_l
     size_t length;
     payload_t *Data;
     int bytes = 0;
+    char* buffer = NULL;
 #ifndef IDM_DEBUG
     if(conn_info->enc.ssl == NULL)
     {
@@ -507,33 +535,65 @@ int sendFile_to_remote(connection_info_t* conn_info,void *payload,char* output_l
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     Data->file_length=(int)length;
     strcpy_s(Data->param_name,sizeof(Data->param_name),output_location);
-    fread (Data->param_value, 1, length, fptr);
-    fclose(fptr);
-    CcspTraceDebug(("%s:%d output file name = %s length=%zu length in Data=%d\nData->param_value=%s\n",__FUNCTION__,__LINE__,Data->param_name,length,Data->file_length,Data->param_value));
-#ifndef IDM_DEBUG
-    if (conn_info->enc.ssl != NULL)
+    buffer =(char*)malloc (length);
+    if(buffer)
     {
+        memset(buffer,0,length);
+        fread (buffer, 1, length, fptr);
+        CcspTraceDebug(("%s:%d output file name = %s length=%zu length in Data=%d\n",__FUNCTION__,__LINE__,Data->param_name,length,Data->file_length));
+#ifndef IDM_DEBUG
+        if (conn_info->enc.ssl == NULL)
+        {
+            CcspTraceError(("%s:%d ssl session is null\n",__FUNCTION__,__LINE__));
+            free(buffer);
+            fclose(fptr);
+            return FT_ERROR;
+        }
         if ((bytes = SSL_write(conn_info->enc.ssl, Data, sizeof(payload_t))) > 0)
         {
-#else
-   if(conn_info->conn != NULL)
-   {
-        if(send(conn_info->conn, Data,sizeof(payload_t), 0) > 0)
-        {
-#endif
+            // above ssl write transfers the information about file length and output file location whereas below one sends the file content
+            if((bytes = SSL_write(conn_info->enc.ssl, buffer,length)) <= 0)
+            {
+                CcspTraceError(("file data is not transformed\n"));
+            }
             CcspTraceDebug(("bytes written = %d and length=%d\n",bytes,(int)length));
         }
         else
         {
-            CcspTraceError(("%s:%d length and file data is not transformed\n",__FUNCTION__,__LINE__));
+            CcspTraceError(("length data is not transformed\n"));
+        }
+#else
+        if(conn_info->conn == NULL)
+        {
+            CcspTraceError(("%s:%d conn value is null\n",__FUNCTION__,__LINE__));
+            free(buffer);
+            fclose(fptr);
             return FT_ERROR;
         }
+        if(send(conn_info->conn, Data,sizeof(payload_t), 0) > 0)
+        {
+            CcspTraceDebug(("bytes written = %d and length=%d\n",bytes,(int)length));
+            if((bytes = send(conn_info->conn, buffer,length,0))<=0){
+                CcspTraceError(("file data is not transformed through send\n"));
+            }
+        }
+        else
+        {
+            CcspTraceError(("%s:%d length and file data is not transformed\n",__FUNCTION__,__LINE__));
+            free(buffer);
+            fclose(fptr);
+            return FT_ERROR;
+        }
+#endif
+        free(buffer);
     }
     else
     {
-        CcspTraceError(("%s:%d ssl session/conn is null\n",__FUNCTION__,__LINE__));
+        CcspTraceError(("memory is not allocated\n"));
+        fclose(fptr);
         return FT_ERROR;
     }
+    fclose(fptr);
     return FT_SUCCESS;
 }
 

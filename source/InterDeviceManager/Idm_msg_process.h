@@ -56,7 +56,8 @@ typedef enum _IDM_MSG_OPERATION
     IDM_SUBS,
     IDM_REQUEST,
     GFT,
-    SFT
+    SFT,
+    SFT_RES
 }IDM_MSG_OPERATION;
 
 typedef enum _IDM_MSG_TYPE
