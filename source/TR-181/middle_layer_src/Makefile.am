@@ -28,5 +28,5 @@ hardware_platform = i686-linux-gnu
 noinst_LTLIBRARIES = libinterdevicemanager_middle_layer_src.la
 libinterdevicemanager_middle_layer_src_la_CPPFLAGS = -I$(top_srcdir)/source/TR-181/include -I$(top_srcdir)/source/TR-181/middle_layer_src -I$(top_srcdir)/source/InterDeviceManager
 
-libinterdevicemanager_middle_layer_src_la_SOURCES =  inter_device_manager_plugin_main.c  inter_device_manager_plugin_main_apis.c inter_device_manager_dml.c
+libinterdevicemanager_middle_layer_src_la_SOURCES =  
 libinterdevicemanager_middle_layer_src_la_LDFLAGS = -lccsp_common -lrdkloggers $(DBUS_LIBS) $(SYSTEMD_LDFLAGS)

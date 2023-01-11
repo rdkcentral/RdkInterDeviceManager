@@ -42,10 +42,29 @@ sendSubscriptionList *headsendSubscriptionList =NULL;
 RecvSubscriptionList *headRecvSubscriptionList = NULL;
 
 uint gReqIdCounter = 0;
-extern ANSC_HANDLE  bus_handle;
 extern rbusHandle_t        rbusHandle;
 
 extern Capabilities_get_cb(IDM_REMOTE_DEVICE_INFO *device, ANSC_STATUS status ,char *mac);
+
+static rbusValueType_t rbusValueChange_GetDataType(enum dataType_e dt)
+{
+    switch(dt)
+    {
+    case ccsp_string: return RBUS_STRING;
+    case ccsp_int: return RBUS_INT32;
+    case ccsp_unsignedInt: return RBUS_UINT32;
+    case ccsp_boolean: return RBUS_BOOLEAN;
+    case ccsp_dateTime: return RBUS_DATETIME;
+    case ccsp_long: return RBUS_INT64;
+    case ccsp_unsignedLong: return RBUS_UINT64;
+    case ccsp_float: return RBUS_SINGLE;
+    case ccsp_double: return RBUS_DOUBLE;
+    case ccsp_byte: return RBUS_BYTES;
+    case ccsp_none:
+    default: return RBUS_NONE;
+    }
+}
+
 void IDM_addToSendRequestList( sendReqList *newReq)
 {
     if(!headsendReqList)
@@ -299,8 +318,6 @@ ANSC_STATUS IDM_sendMsg_to_Remote_device(idm_send_msg_Params_t *param)
                 strncpy(payload.Mac_source, localDevice->stRemoteDeviceInfo.MAC,MAC_ADDR_SIZE);
                 strncpy(payload.param_name,param->param_name,sizeof(payload.param_name));
                 strncpy(payload.param_value,param->param_value,sizeof(payload.param_value));
-                strncpy(payload.pComponent_name,param->pComponent_name,sizeof(payload.pComponent_name));
-                strncpy(payload.pBus_path,param->pBus_path,sizeof(payload.pBus_path));
                 payload.type = param->type;
 
                 /* send message */
@@ -751,8 +768,6 @@ int IDM_Incoming_Request_handler(payload_t * payload)
         strncpy(getReq->Mac_dest, payload->Mac_source,sizeof(getReq->Mac_dest));
         strncpy(getReq->param_name, payload->param_name,sizeof(getReq->param_name));
         strncpy(getReq->param_value, payload->param_value,sizeof(getReq->param_value));
-        strncpy(getReq->pComponent_name, payload->pComponent_name,sizeof(getReq->pComponent_name));
-        strncpy(getReq->pBus_path, payload->pBus_path,sizeof(getReq->pBus_path));
         getReq->next = NULL;
         IDM_addToReceivedReqList(getReq);
     }
@@ -788,79 +803,42 @@ void IDM_Incoming_req_handler_thread()
             /* Rbus get implementation */
             if(ReqEntry->operation == GET)
             {
-                parameterValStruct_t   **retVal;
-                char                    *ParamName[ 1 ];
-                int                    ret               = 0,
-                                       nval;
-
-                //Assign address for get parameter name
-                ParamName[0] = ReqEntry->param_name;
-                ret = CcspBaseIf_getParameterValues(
-                        bus_handle,
-                        ReqEntry->pComponent_name,
-                        ReqEntry->pBus_path,
-                        ParamName,
-                        1,
-                        &nval,
-                        &retVal);
-
-                //Copy the value
-                if( CCSP_SUCCESS == ret )
+                rbusValue_t value;
+                int rc = RBUS_ERROR_SUCCESS;
+                if((rc = rbus_get(rbusHandle, ReqEntry->param_name, &value)) == RBUS_ERROR_SUCCESS)
                 {
-
-                    if( NULL != retVal[0]->parameterValue )
-                    {
-                        memcpy( payload.param_value, retVal[0]->parameterValue, strlen( retVal[0]->parameterValue ) + 1 );
-                    }
-
-                    if( retVal )
-                    {
-                        free_parameterValStruct_t (bus_handle, nval, retVal);
-                    }
-                    /* Set return status */
+                    rbusValue_ToString(value,payload.param_value, (sizeof(payload.param_value)-1));
+                    CcspTraceInfo(("%s %d - payload.param_value %s \n", __FUNCTION__, __LINE__,payload.param_value));
+                    rbusValue_Release(value);
                     payload.status = ANSC_STATUS_SUCCESS;
                 }else
                 {
+                    CcspTraceError(("%s %d - get  %s failed \n", __FUNCTION__, __LINE__,ReqEntry->param_name));
                     payload.status = ANSC_STATUS_FAILURE;
                 }
             }else if(ReqEntry->operation == SET)
             {
                 CcspTraceInfo(("%s %d -Processing Set request from %s paramName %s paramValue %s\n", __FUNCTION__, __LINE__,ReqEntry->Mac_dest, ReqEntry->param_name,ReqEntry->param_value));
-                CCSP_MESSAGE_BUS_INFO *bus_info              = (CCSP_MESSAGE_BUS_INFO *)bus_handle;
-                parameterValStruct_t   param_val[1]          = { 0 };
-                char                  *faultParam            = NULL;
-                char                   acParameterName[256]  = { 0 },
-                                       acParameterValue[128] = { 0 };
-                int                    ret                   = 0;
-                //Copy Name
-                snprintf( acParameterName,sizeof(acParameterName)-1, "%s", ReqEntry->param_name );
-                param_val[0].parameterName  = acParameterName;
+                rbusValue_t value;
+                rbusValueType_t type;
+                int rc = RBUS_ERROR_SUCCESS;
+                rbusSetOptions_t opts;
 
-                //Copy Value
-                snprintf( acParameterValue,sizeof(acParameterValue)-1, "%s", ReqEntry->param_value );
-                param_val[0].parameterValue = acParameterValue;
+                type  = rbusValueChange_GetDataType(ReqEntry->type);
+                opts.commit = true;
+                rbusValue_Init(&value);
+                rbusValue_SetFromString(value, type, ReqEntry->param_value);
 
-                //Copy Type
-                param_val[0].type           = ReqEntry->type;
-                ret = CcspBaseIf_setParameterValues(
-                        bus_handle,
-                        ReqEntry->pComponent_name,
-                        ReqEntry->pBus_path,
-                        0,
-                        0,
-                        param_val,
-                        1,
-                        TRUE,
-                        &faultParam
-                        );
-
-                if( ( ret != CCSP_SUCCESS ) && ( faultParam != NULL ) )
+                if((rc = rbus_set(rbusHandle, ReqEntry->param_name, value, &opts)) == RBUS_ERROR_SUCCESS)
+                {
+                    payload.status = ANSC_STATUS_SUCCESS;
+                    CcspTraceInfo(("%s-%d  set %s Successful\n",__FUNCTION__,__LINE__,ReqEntry->param_name));
+                }else
                 {
                     CcspTraceError(("%s-%d Failed to set %s\n",__FUNCTION__,__LINE__,ReqEntry->param_name));
-                    bus_info->freefunc( faultParam );
                     payload.status = ANSC_STATUS_FAILURE;
                 }
-                payload.status = ANSC_STATUS_SUCCESS;
+                rbusValue_Release(value);
             }else if(ReqEntry->operation == IDM_REQUEST)
             {
                 CcspTraceInfo(("%s %d -Processing IDM_REQUEST request from %s \n", __FUNCTION__, __LINE__,ReqEntry->Mac_dest));

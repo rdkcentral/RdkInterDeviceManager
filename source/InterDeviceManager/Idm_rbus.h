@@ -84,7 +84,7 @@ typedef struct _DeviceChangeEvent {
 } IDM_DeviceChangeEvent;
 
 ANSC_STATUS Idm_Rbus_Init();
-
+ANSC_STATUS Idm_Rbus_DM_Init();
 ANSC_STATUS Idm_Rbus_Exit();
 
 rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, const char* eventName, rbusFilter_t filter, int32_t interval, bool* autoPublish);

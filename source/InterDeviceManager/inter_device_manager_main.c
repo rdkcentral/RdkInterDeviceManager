@@ -35,7 +35,6 @@
 
 #include "inter_device_manager_internal.h"
 #include "inter_device_manager_global.h"
-#include "inter_device_manager_messagebus_interface.h"
 #include "ccsp_trace.h"
 
 #include "cap.h"
@@ -45,7 +44,6 @@ cap_user appcaps;
 
 char                                        g_Subsystem[32]         = {0};
 extern char*                                pComponentName;
-extern ANSC_HANDLE                          bus_handle;
 
 extern ANSC_STATUS Idm_Init();
 
@@ -91,66 +89,6 @@ static void daemonize(void)
 #endif
 }
 
-static int  cmd_dispatch(int  command)
-{
-    switch ( command )
-    {
-        case    'e' :
-
-#ifdef _ANSC_LINUX
-            CcspTraceInfo(("Connect to bus daemon...\n"));
-
-            {
-                char                            CName[256];
-
-                if ( g_Subsystem[0] != 0 )
-                {
-                    sprintf(CName, "%s%s", g_Subsystem, RDK_COMPONENT_ID_INTER_DEVICE_MANAGER);
-                }
-                else
-                {
-                    sprintf(CName, "%s", RDK_COMPONENT_ID_INTER_DEVICE_MANAGER);
-                }
-
-                InterDeviceManager_MessageBus_Init
-                    (
-                     CName,
-                     CCSP_MSG_BUS_CFG,
-                     RDK_COMPONENT_PATH_INTER_DEVICE_MANAGER
-                    );
-            }
-#endif
-
-            InterDeviceManager_Init();
-            InterDeviceManager_RegisterComponent();
-
-            break;
-
-        case    'm':
-
-            AnscPrintComponentMemoryTable(pComponentName);
-
-            break;
-
-        case    't':
-
-            AnscTraceMemoryTable();
-
-            break;
-
-        case    'c':
-
-            InterDeviceManager_Term();
-
-            break;
-
-        default:
-            break;
-    }
-
-    return 0;
-}
-
 static void _print_stack_backtrace(void)
 {
 #ifdef __GNUC__
@@ -175,6 +113,7 @@ static void _print_stack_backtrace(void)
 #endif
 #endif
 }
+#endif
 
 void sig_handler(int sig)
 {
@@ -217,7 +156,6 @@ void sig_handler(int sig)
     }
 
 }
-#endif
 
 int main(int argc, char* argv[])
 {
@@ -268,26 +206,14 @@ int main(int argc, char* argv[])
             bRunAsDaemon = FALSE;
         }
     }
-
     pComponentName          = RDK_COMPONENT_NAME_INTER_DEVICE_MANAGER;
 
-#if defined(_ANSC_WINDOWSNT)
-    AnscStartupSocketWrapper(NULL);
+#if defined(_ANSC_LINUX)
 
-    cmd_dispatch('e');
-
-    while ( cmdChar != 'q' )
-    {
-        cmdChar = getchar();
-
-        cmd_dispatch(cmdChar);
-    }
-
-#elif defined(_ANSC_LINUX)
     if ( bRunAsDaemon )
         daemonize();
 
-    CcspTraceInfo(("\nAfter daemonize before signal\n"));
+   CcspTraceInfo(("\nAfter daemonize before signal\n"));
 
 #ifdef INCLUDE_BREAKPAD
     breakpad_ExceptionHandler();
@@ -307,21 +233,6 @@ int main(int argc, char* argv[])
     signal(SIGHUP, sig_handler);
 #endif
 
-    cmd_dispatch('e');
-
-
-#ifdef _COSA_SIM_
-    subSys = "";        /* PC simu use empty string as subsystem */
-#else
-    subSys = NULL;      /* use default sub-system */
-#endif
-
-    err = Cdm_Init(bus_handle, subSys, NULL, NULL, pComponentName);
-    if (err != CCSP_SUCCESS)
-    {
-        fprintf(stderr, "Cdm_Init: %s\n", Cdm_StrError(err));
-        exit(1);
-    }
     system("touch /tmp/interdevicemanager_initialized");
 
     if(ANSC_STATUS_FAILURE == Idm_Init())
@@ -336,25 +247,9 @@ int main(int argc, char* argv[])
             sleep(30);
         }
     }
-    else
-    {
-        while ( cmdChar != 'q' )
-        {
-            cmdChar = getchar();
-
-            cmd_dispatch(cmdChar);
-        }
-    }
 
 #endif
-    err = Cdm_Term();
-    if (err != CCSP_SUCCESS)
-    {
-        fprintf(stderr, "Cdm_Term: %s\n", Cdm_StrError(err));
-        exit(1);
-    }
-    CcspTraceInfo(("\n Before InterDeviceManager_Term() \n"));
-    InterDeviceManager_Term();
+
     CcspTraceInfo(("\nExiting the main function\n"));
     return 0;
 

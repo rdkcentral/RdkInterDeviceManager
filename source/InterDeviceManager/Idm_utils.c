@@ -47,7 +47,7 @@ token_t sysevent_token;
 #define SYSEVENT_OPEN_MAX_RETRIES   6
 
 
-extern ANSC_HANDLE  bus_handle;
+extern rbusHandle_t        rbusHandle;
 extern char         g_Subsystem[32];
 static IDM_DML_LINK_LIST sidmDmlListInfo;
 
@@ -224,43 +224,85 @@ ANSC_STATUS updteSubscriptionStatus(char *event, IDM_RBUS_SUBS_STATUS *sidmRmSub
 
 int IDM_RdkBus_GetParamValuesFromDB( char *pParamName, char *pReturnVal, int returnValLength )
 {
-    int     retPsmGet     = CCSP_SUCCESS;
-    CHAR   *param_value   = NULL, tmpOutput[256] = {0};
     /* Input Validation */
     if( ( NULL == pParamName) || ( NULL == pReturnVal ) || ( 0 >= returnValLength ) )
     {
         CcspTraceError(("%s Invalid Input Parameters\n",__FUNCTION__));
         return CCSP_FAILURE;
     }
-    retPsmGet = PSM_Get_Record_Value2(bus_handle, g_Subsystem, pParamName, NULL, &param_value);
-    if (retPsmGet != CCSP_SUCCESS)
+    rbusProperty_t prop = NULL;
+    rbusObject_t outParams = NULL;
+    rbusObject_t inParams = NULL;
+    rbusValue_t value = NULL;
+
+    rbusObject_Init(&inParams, NULL);
+    rbusProperty_Init(&prop, pParamName, NULL) ;
+    rbusObject_SetProperty(inParams,prop);
+    rbusProperty_Release(prop);
+    prop =NULL;
+
+    rbusError_t rc = RBUS_ERROR_SUCCESS;
+    rc = rbusMethod_Invoke(rbusHandle, "GetPSMRecordValue()", inParams, &outParams);
+    if(RBUS_ERROR_SUCCESS != rc)
     {
-        CcspTraceError(("%s Error %d reading %s\n", __FUNCTION__, retPsmGet, pParamName));
+
+        CcspTraceError(("%s failed for GetPSMRecordValue() with err: '%s'\n\r",__FUNCTION__, rbusError_ToString(rc)));
+        return -1;
     }
-    else
+    prop = rbusObject_GetProperties(outParams);
+    if(prop)
     {
-        /* Copy DB Value */
-        snprintf(pReturnVal, returnValLength, "%s", param_value);
-        ((CCSP_MESSAGE_BUS_INFO *)bus_handle)->freefunc(param_value);
+        value = rbusProperty_GetValue(prop);
+        if(value)
+        {
+            rbusValue_ToString(value,pReturnVal,(returnValLength - 1));
+        }
     }
-   return retPsmGet;
+
+    rbusObject_Release(inParams);
+    rbusObject_Release(outParams);
+    return CCSP_SUCCESS;
 }
 
 int IDM_RdkBus_SetParamValuesToDB( char *pParamName, char *pParamVal )
 {
-    int     retPsmSet  = CCSP_SUCCESS;
     /* Input Validation */
     if( ( NULL == pParamName) || ( NULL == pParamVal ) )
     {
         CcspTraceError(("%s Invalid Input Parameters\n",__FUNCTION__));
         return CCSP_FAILURE;
     }
-    retPsmSet = PSM_Set_Record_Value2(bus_handle, g_Subsystem, pParamName, ccsp_string, pParamVal);
-    if (retPsmSet != CCSP_SUCCESS)
+
+    rbusValue_t value = NULL;
+    rbusProperty_t prop = NULL;
+    rbusObject_t inParams = NULL;
+    rbusObject_t outParams = NULL;
+    rbusError_t rc = RBUS_ERROR_SUCCESS;
+
+    rbusObject_Init(&inParams, NULL);
+    rbusValue_Init(&value);
+    if(false == rbusValue_SetFromString(value, RBUS_STRING, pParamVal))
     {
-        CcspTraceError(("%s Error %d writing %s\n", __FUNCTION__, retPsmSet, pParamName));
+        CcspTraceError(("%s:Invalid value '%s' for the parameter %s\n\r", __FUNCTION__, pParamVal, pParamName));
+        return -1;
     }
-    return retPsmSet;
+
+    rbusProperty_Init(&prop, pParamName, value);
+    rbusObject_SetProperty(inParams,prop);
+    rbusValue_Release(value);
+    rbusProperty_Release(prop);
+
+    rc = rbusMethod_Invoke(rbusHandle, "SetPSMRecordValue()", inParams, &outParams);
+    if(RBUS_ERROR_SUCCESS != rc)
+    {
+
+        CcspTraceError(("%s failed for SetPSMRecordValue() with err: '%s'\n\r",__FUNCTION__, rbusError_ToString(rc)));
+        return -1;
+    }
+    
+    rbusObject_Release(inParams);
+    rbusObject_Release(outParams);
+    return CCSP_SUCCESS;
 }
 
 unsigned int cidrMask(unsigned int n) {

@@ -36,9 +36,12 @@
 #ifndef  _IDM_INTERNAL_H_
 #define  _IDM_INTERNAL_H_
 
-#include "inter_device_manager_plugin_main_apis.h"
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include "inter_device_manager_global.h"
+#include "ansc_debug_wrapper_base.h"
+#include "ansc_common_structures.h"
+#include "ansc_status.h"
 
 #define  RDK_COMPONENT_ID_INTER_DEVICE_MANAGER                             "com.cisco.spvtg.ccsp.interdevicemanager"
 #define  RDK_COMPONENT_NAME_INTER_DEVICE_MANAGER                           "com.cisco.spvtg.ccsp.interdevicemanager"
@@ -199,122 +202,4 @@ typedef struct _IDM_RBUS_SUBS_STATUS
 
 }IDM_RBUS_SUBS_STATUS;
 
-#define ComponentCommonDmInit(component_com_interdevicemanager)                                          \
-        {                                                                                             \
-            AnscZeroMemory(component_com_interdevicemanager, sizeof(COMPONENT_COMMON_INTER_DEVICE_MANAGER)); \
-            component_com_interdevicemanager->Name        = NULL;                                        \
-            component_com_interdevicemanager->Version     = 1;                                           \
-            component_com_interdevicemanager->Author      = "SKY";                                        \
-            component_com_interdevicemanager->Health      = RDK_COMMON_COMPONENT_HEALTH_Red;            \
-            component_com_interdevicemanager->State       = RDK_COMMON_COMPONENT_STATE_Running;         \
-            if(g_iTraceLevel >= CCSP_TRACE_LEVEL_EMERGENCY)                                           \
-                component_com_interdevicemanager->LogLevel = (ULONG) g_iTraceLevel;                      \
-            component_com_interdevicemanager->LogEnable   = TRUE;                                        \
-            component_com_interdevicemanager->MemMaxUsage = 0;                                           \
-            component_com_interdevicemanager->MemMinUsage = 0;                                           \
-            component_com_interdevicemanager->MemConsumed = 0;                                           \
-        }
-
-ANSC_STATUS
-InterDeviceManager_Init
-(
-);
-
-ANSC_STATUS
-InterDeviceManager_RegisterComponent
-(
-);
-
-ANSC_STATUS
-InterDeviceManager_Term
-(
-);
-
-
-char*
-InterDeviceManager_GetComponentName
-    (
-        ANSC_HANDLE                     hThisObject
-    );
-
-ULONG
-InterDeviceManager_GetComponentVersion
-    (
-        ANSC_HANDLE                     hThisObject
-    );
-
-char*
-InterDeviceManager_GetComponentAuthor
-    (
-        ANSC_HANDLE                     hThisObject
-    );
-
-ULONG
-InterDeviceManager_GetComponentHealth
-    (
-        ANSC_HANDLE                     hThisObject
-    );
-
-ULONG
-InterDeviceManager_GetComponentState
-    (
-        ANSC_HANDLE                     hThisObject
-    );
-
-BOOL
-InterDeviceManager_GetLoggingEnabled
-    (
-        ANSC_HANDLE                     hThisObject
-    );
-
-ANSC_STATUS
-InterDeviceManager_SetLoggingEnabled
-    (
-        ANSC_HANDLE                     hThisObject,
-        BOOL                            bEnabled
-    );
-
-ULONG
-InterDeviceManager_GetLoggingLevel
-    (
-        ANSC_HANDLE                     hThisObject
-    );
-
-ANSC_STATUS
-InterDeviceManager_SetLoggingLevel
-    (
-        ANSC_HANDLE                     hThisObject,
-        ULONG                           LogLevel
-    );
-
-ULONG
-InterDeviceManager_GetMemMaxUsage
-    (
-        ANSC_HANDLE                     hThisObject
-    );
-
-ULONG
-InterDeviceManager_GetMemMinUsage
-    (
-        ANSC_HANDLE                     hThisObject
-    );
-
-ULONG
-InterDeviceManager_GetMemConsumed
-    (
-        ANSC_HANDLE                     hThisObject
-    );
-
-ANSC_STATUS
-InterDeviceManager_ApplyChanges
-    (
-        ANSC_HANDLE                     hThisObject
-    );
-
-int
-InterDeviceManager_DMLInit
-(
-    ULONG                       uMaxVersionSupported,
-    void*                       hCosaPlugInfo
-);
 #endif

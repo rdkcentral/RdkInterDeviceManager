@@ -177,7 +177,6 @@ ANSC_STATUS Idm_Create_Rbus_Obj()
     return  returnStatus;
 }
 
-//TODO : idm manager should call this function
 ANSC_STATUS Idm_Rbus_Init()
 {
     rbusError_t rc;
@@ -187,6 +186,12 @@ ANSC_STATUS Idm_Rbus_Init()
     if(rc != RBUS_ERROR_SUCCESS)
         return ANSC_STATUS_FAILURE;
 
+     return rc;
+}
+
+ANSC_STATUS Idm_Rbus_DM_Init()
+{
+    rbusError_t rc;
     // 1. Register publish events
     rc = rbus_regDataElements(rbusHandle, ARRAY_SZ(idmRmPublishElements), idmRmPublishElements);
 
@@ -221,22 +226,7 @@ ANSC_STATUS Idm_Rbus_Init()
     CcspTraceInfo(("%s %d - Successfully registered  idmRmCapElements\n", __FUNCTION__, __LINE__ ));
 
     rc = Idm_Create_Rbus_Obj();
-   
  
-#ifdef TEST_RBUS_EVENT
-#if 0
-    int i = 0;
-    for( i = 1 ; i < 10 ; i++)
-    {
-        rbusTable_registerRow(rbusHandle, "Device.X_RDK_Remote.Device", NULL, i++);
-        if(rc != RBUS_ERROR_SUCCESS)
-        {
-            CcspTraceInfo(("%s %d - created table row %d \n", __FUNCTION__, __LINE__, i ));
-        }
-    }
-#endif
-    Idm_RunEventTest();
-#endif
     return rc;    
 }
 
@@ -668,14 +658,6 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
         strncpy(param.param_value, rbusValue_GetString(value, NULL),sizeof(param.param_value));
         CcspTraceInfo(("%s %d - param.param_value %s\n", __FUNCTION__, __LINE__,param.param_value));
 
-        value = rbusObject_GetValue(inParams, "pComponent");
-        strncpy(param.pComponent_name, rbusValue_GetString(value, NULL),sizeof(param.pComponent_name));
-        CcspTraceInfo(("%s %d - param. %s\n", __FUNCTION__, __LINE__,param.pComponent_name));
-
-        value = rbusObject_GetValue(inParams, "pBus");
-        strncpy(param.pBus_path, rbusValue_GetString(value, NULL),sizeof(param.pBus_path));
-        CcspTraceInfo(("%s %d - param. %s\n", __FUNCTION__, __LINE__,param.pBus_path));
-
         value = rbusObject_GetValue(inParams, "Timeout");
         param.timeout = rbusValue_GetInt32(value);
         CcspTraceInfo(("%s %d - param. %d\n", __FUNCTION__, __LINE__,param.timeout));
@@ -1003,4 +985,5 @@ BOOL Idm_Rbus_discover_components(char const *pModuleList)
 
     return ret;
 }
+
 #endif

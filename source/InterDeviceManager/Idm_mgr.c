@@ -42,17 +42,23 @@ static void waitUntilSystemReady()
 #endif //_HUB4_PRODUCT_REQ_
 ANSC_STATUS Idm_Init()
 {
+    if(ANSC_STATUS_FAILURE == Idm_Rbus_Init())
+    {
+        return ANSC_STATUS_FAILURE;
+    }       
+    CcspTraceInfo(("%s %d - IDM Rbus initialisation success\n", __FUNCTION__, __LINE__)); 
+
     if(ANSC_STATUS_FAILURE == IdmMgr_Data_Init())
     {
         return ANSC_STATUS_FAILURE;
     }
     CcspTraceInfo(("%s %d - IDM data initialisation success\n", __FUNCTION__, __LINE__));
 
-    if(ANSC_STATUS_FAILURE == Idm_Rbus_Init())
+    if(ANSC_STATUS_FAILURE == Idm_Rbus_DM_Init())
     {
         return ANSC_STATUS_FAILURE;
     }       
-    CcspTraceInfo(("%s %d - IDM Rbus initialisation success\n", __FUNCTION__, __LINE__)); 
+    CcspTraceInfo(("%s %d - IDM DM Registration success\n", __FUNCTION__, __LINE__)); 
 
 #ifdef _HUB4_PRODUCT_REQ_
     waitUntilSystemReady();

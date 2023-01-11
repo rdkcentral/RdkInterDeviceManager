@@ -71,8 +71,6 @@ typedef struct _idm_send_msg_Params
     char Mac_dest[MAC_ADDR_SIZE];
     char param_name[128];
     char param_value[2048];
-    char pComponent_name[128];
-    char pBus_path[128];
     uint timeout;
     enum dataType_e type;
     rbusMethodAsyncHandle_t resCb;
@@ -90,8 +88,6 @@ typedef struct _payload
     char param_name[128];
     enum dataType_e type;
     char param_value[2048];
-    char pComponent_name[128];
-    char pBus_path[128];
 }payload_t;
 
 typedef  struct _RecvReqList
@@ -101,8 +97,6 @@ typedef  struct _RecvReqList
     IDM_MSG_OPERATION operation;
     char param_name[128];
     char param_value[2048];
-    char pComponent_name[128];
-    char pBus_path[128];
     uint timeout;
     int file_length;
     struct _RecvReqList *next;
