@@ -46,7 +46,7 @@ extern rbusHandle_t        rbusHandle;
 
 extern Capabilities_get_cb(IDM_REMOTE_DEVICE_INFO *device, ANSC_STATUS status ,char *mac);
 
-static rbusValueType_t rbusValueChange_GetDataType(enum dataType_e dt)
+static rbusValueType_t IDM_rbusValueChange_GetDataType(enum dataType_e dt)
 {
     switch(dt)
     {
@@ -824,7 +824,7 @@ void IDM_Incoming_req_handler_thread()
                 int rc = RBUS_ERROR_SUCCESS;
                 rbusSetOptions_t opts;
 
-                type  = rbusValueChange_GetDataType(ReqEntry->type);
+                type  = IDM_rbusValueChange_GetDataType(ReqEntry->type);
                 opts.commit = true;
                 rbusValue_Init(&value);
                 rbusValue_SetFromString(value, type, ReqEntry->param_value);
