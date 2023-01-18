@@ -18,10 +18,9 @@
 #############################################################################
 #############################################################################
 #
-# Copyright 2022 RDK Management
+# Copyright 2021 RDK Management
 # Licensed under the Apache License, Version 2.0
 #############################################################################
-
 AM_CFLAGS = -D_ANSC_LINUX
 AM_CFLAGS += -D_ANSC_USER
 AM_LDFLAGS = -lccsp_common

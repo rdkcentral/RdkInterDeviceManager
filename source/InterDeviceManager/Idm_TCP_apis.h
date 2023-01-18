@@ -16,10 +16,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/*
- * Copyright 2022 RDK Management
- * Licensed under the Apache License, Version 2.0
- */
 
 #ifndef _IDM_TCP_H_
 #define _IDM_TCP_H_

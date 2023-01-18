@@ -17,10 +17,9 @@
  * limitations under the License.
  */
 /*
- * Copyright 2022 RDK Management
+ * Copyright 2021 RDK Management
  * Licensed under the Apache License, Version 2.0
  */
-
 #ifndef _IDM_DATA_H_
 #define _IDM_DATA_H_
 
