@@ -69,7 +69,7 @@ int rcv_message_cb( connection_info_t* conn_info, void *payload)
         }
         strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,IDM_SFT_receive(conn_info,recvData));
         CcspTraceInfo(("%s:%d status=%s\n",__FUNCTION__,__LINE__,pidmDmlInfo->stRemoteInfo.ft_status));
-        Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",&(pidmDmlInfo->stRemoteInfo.ft_status));
+        Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",(pidmDmlInfo->stRemoteInfo.ft_status));
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     }
     else if(recvData->operation == SFT_RES)

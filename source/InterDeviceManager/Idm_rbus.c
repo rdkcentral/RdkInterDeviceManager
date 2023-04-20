@@ -98,7 +98,7 @@ rbusDataElement_t idmRmCapElements[] = {
         {DM_REMOTE_DEVICE_RESET_CAP, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
         {DM_REMOTE_DEVICE_GET_FILE, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
         {DM_REMOTE_DEVICE_SEND_FILE, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
-        {DM_REMOTE_DEVICE_FT_STATUS, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
+        {DM_REMOTE_DEVICE_FT_STATUS, RBUS_ELEMENT_TYPE_EVENT | RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, idmDmPublishEventHandler, X_RDK_Remote_MethodHandler}},
         {DM_REMOTE_DEVICE_INVOKE, RBUS_ELEMENT_TYPE_METHOD | RBUS_ELEMENT_TYPE_EVENT, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
         {IDM_DISCOVERY_RESTART, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, X_RDK_Remote_MethodHandler}},
     };
@@ -291,6 +291,12 @@ ANSC_STATUS Idm_PublishDmEvent(char *dm_event, void *dm_value)
     event.name = dm_event;
     event.data = rdata;
     event.type = RBUS_EVENT_GENERAL;
+    if ((strncmp(dm_event, DM_REMOTE_DEVICE_FT_STATUS, strlen(dm_event)) == 0) && (sidmRmSubStatus.idmRmDeviceFTStatusSubscribed != TRUE))
+    {
+        // no need to publish FT status if there is no subscribers. This is a success case
+        CcspTraceInfo(("%s %d -  no subscribers for %s. Not publishing\n", __FUNCTION__, __LINE__, dm_event));
+        return ANSC_STATUS_SUCCESS;
+    }
     if(rbusEvent_Publish(rbusHandle, &event) != RBUS_ERROR_SUCCESS) {
         CcspTraceInfo(("%s %d - event pusblishing failed for type %d\n", __FUNCTION__, __LINE__, type));
         return ANSC_STATUS_FAILURE;

@@ -34,7 +34,7 @@ token_t sysevent_token;
 #define SYS_IP_ADDR                 "127.0.0.1"
 #define IDM_SYSNAME_SND          "IDM"
 #define SYSEVENT_OPEN_MAX_RETRIES   6
-
+#define DM_REMOTE_DEVICE_FT_STATUS "Device.X_RDK_Remote.FileTransferStatus()"
 
 extern rbusHandle_t        rbusHandle;
 extern char         g_Subsystem[32];
@@ -200,6 +200,8 @@ ANSC_STATUS updteSubscriptionStatus(char *event, IDM_RBUS_SUBS_STATUS *sidmRmSub
         sidmRmSubStatus->idmRmNewDeviceSubscribed = TRUE;
     else if(strcmp(event, RM_NUM_ENTRIES) == 0)
         sidmRmSubStatus->idmRmDeviceNoofEntriesSubscribed = TRUE;
+    else if(strncmp(event, DM_REMOTE_DEVICE_FT_STATUS, strlen(event)) == 0)
+        sidmRmSubStatus->idmRmDeviceFTStatusSubscribed = TRUE;
     else
     {
         CcspTraceInfo(("%s %d - Failed to update subscripton status for %s\n", __FUNCTION__, __LINE__, event));
