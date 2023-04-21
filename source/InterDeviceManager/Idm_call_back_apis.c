@@ -361,6 +361,7 @@ void discovery_cb_thread(void *arg)
                 free(threadArgs);
                 return -1;
             }
+            system("touch /tmp/idm_established");
             break;
 
         }
@@ -427,6 +428,7 @@ void discovery_cb_thread(void *arg)
             free(threadArgs);
             return -1;
         }
+        system("touch /tmp/idm_established");
     }
     if(pidmDmlInfo != NULL)
     {
