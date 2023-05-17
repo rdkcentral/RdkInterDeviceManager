@@ -58,6 +58,18 @@ if [ "$INTERFACE" != "br-home" ] &&  [ "$INTERFACE" != "br403" ]; then
     exit 0
 fi
 
+MODEL=$(deviceinfo.sh -mo | tr -d '\r\n')
+
+MODE=$(dmcli eRT getv Device.X_RDKCENTRAL-COM_DeviceControl.DeviceNetworkingMode | grep value: | awk -F: '{print $3}' | tr -d ' ')
+
+if [ -z "$MODE" ]; then
+    exit 0
+fi
+
+if [ "$MODEL" == "WNXL11BWL" ] && [ "$MODE" == "0" ]; then
+    exit 0
+fi
+
 ADDRESS=$(ip -f inet addr show "$INTERFACE" | awk '/inet / {print $2}')
 
 if [ -z "$ADDRESS" ]; then
