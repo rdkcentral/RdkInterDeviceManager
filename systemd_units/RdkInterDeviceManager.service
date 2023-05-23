@@ -34,7 +34,6 @@ ExecStart=/usr/bin/interdevicemanager -subsys eRT.
 ExecStop=/bin/sh -c 'echo "`date`: Stopping/Restarting InterDevice Manager" >> ${PROCESS_RESTART_LOG}'
 Restart=on-failure
 
-StandardOutput=syslog+console
 
 [Install]
 WantedBy=multi-user.target
