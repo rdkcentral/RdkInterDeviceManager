@@ -54,6 +54,7 @@
 #define IPv6_ADDR_SIZE 128
 #define LOC_SIZE 128
 #define FT_STATUS_SIZE 24
+#define INTF_SIZE 10
 typedef  struct
 _COMPONENT_COMMON_INTER_DEVICE_MANAGER
 {
@@ -103,7 +104,7 @@ typedef struct {
 } device_info_t;
 
 typedef struct {
-    char interface[10];
+    char interface[INTF_SIZE];
     uint  port;
     device_info_t* device;
 } connection_config_t;

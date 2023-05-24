@@ -17,12 +17,15 @@
  * limitations under the License.
  */
 
+#include <net/if.h>
+#include <sys/ioctl.h>
 #include "Idm_TCP_apis.h"
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #define MAX_TCP_CLIENTS 30
 #define SSL_CERTIFICATE "/tmp/idm_xpki_cert"
 #define SSL_KEY         "/tmp/idm_xpki_key"
+#define SSL_CA_CERTIFICATE "/tmp/idm_UPnP_CA"
 
 bool ssl_lib_init = false;
 bool TCP_server_started = false;
@@ -33,16 +36,13 @@ typedef struct tcp_server_threadargs
 {
     callback_recv cb;
     int port;
+    char interface[INTF_SIZE];
 } TcpServerThreadArgs;
 
 SSL_CTX* init_ctx(void)
 {
     SSL_CTX *ctx = NULL;
-    OpenSSL_add_all_algorithms();
-    SSL_load_error_strings();
     ctx = SSL_CTX_new(SSLv23_method());
-    //SSL_CTX_set_options(ctx, SSL_OP_NO_TICKET);
-    //SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
     return ctx;
 }
 
@@ -62,8 +62,71 @@ int load_certificate(SSL_CTX* ctx)
     {
         CcspTraceError(("(%s:%d) Error in verifying privat key with certificate file\n", __FUNCTION__, __LINE__));
     }
-    CcspTraceInfo(("(%s:%d)Certificate & private key loaded successfully\n", __FUNCTION__, __LINE__));
+    /* Load CA certificate for certificate verification */
+    if(! SSL_CTX_load_verify_locations(ctx, SSL_CA_CERTIFICATE, NULL))
+    {
+        CcspTraceError(("(%s:%d) Error in loading CA certificate\n", __FUNCTION__, __LINE__));
+        return -1;
+    }
+
+    CcspTraceInfo(("(%s:%d)Certificate , private key & CA loaded successfully\n", __FUNCTION__, __LINE__));
     return 0;
+}
+
+
+/* Callback function will be invoked after client certificate validation. 
+  Verifiation result will be in "preverify_ok"
+*/
+static int client_cert_verify_cb(int preverify_ok, X509_STORE_CTX *x509_ctx)
+{
+    struct http_ctx *ctx;
+    X509 *cert;
+    int err, depth;
+    char buf[256];
+    X509_NAME *name;
+    const char *err_str;
+    SSL *ssl;
+
+    CcspTraceInfo(("(%s:%d)SSL Client cert verification status : %d\n", __FUNCTION__, __LINE__, preverify_ok));
+
+    if(!preverify_ok)
+    {
+        // Get error code and convert it to  error string
+        CcspTraceError(("(%s:%d)SSL Client cert verification failed: %d\n", __FUNCTION__, __LINE__, preverify_ok));
+        CcspTraceError(("(%s:%d)Terminating SSL handshake: %d\n", __FUNCTION__, __LINE__));
+        err = X509_STORE_CTX_get_error(x509_ctx);
+        if(err != X509_V_OK)
+        {
+            err_str = X509_verify_cert_error_string(err);
+            CcspTraceError(("(%s:%d) Error is :%s\n", __FUNCTION__, __LINE__,err_str));
+        }
+    } 
+    else
+    {
+        //At this point preverify_ok is 1. But do additional check and reset it
+        // do an additional check for subject name which may not be found by default validation
+        cert = X509_STORE_CTX_get_current_cert(x509_ctx);
+        if(cert == NULL)
+        {
+
+            CcspTraceError(("(%s:%d)SSL Client certificate is unavailable \n", __FUNCTION__, __LINE__));
+            // set preverify_ok and return it such that ssl handshake will be terminated
+            preverify_ok = 0;
+            CcspTraceError(("(%s:%d)Terminating SSL handshake \n", __FUNCTION__, __LINE__));
+            return preverify_ok;
+        }
+        name = X509_get_subject_name(cert);
+        if(!name)
+        {
+            CcspTraceError(("(%s:%d)SSL Client certificate subject name invalid \n", __FUNCTION__, __LINE__));
+            // set preverify_ok and return it such that ssl handshake will be terminated
+            CcspTraceError(("(%s:%d)Terminating SSL handshake \n", __FUNCTION__, __LINE__));
+            preverify_ok = 0;
+        }
+    }
+
+    // if preverify_ok == 0, ssl handshake will automatically get terminated
+    return preverify_ok;
 }
 
 void tcp_server_thread(void *arg)
@@ -79,9 +142,30 @@ void tcp_server_thread(void *arg)
     payload_t buffer;
     SSL_CTX *ctx = NULL;
     SSL *ssl[MAX_TCP_CLIENTS] = {NULL};
+    int      fd = -1;
+    struct  ifreq ifr;
+    char interface[INTF_SIZE];
     TcpServerThreadArgs *ta = arg;
     int port_no = ta->port;
     callback_recv rcv_cb = ta->cb;
+    strncpy_s(interface, sizeof(interface), ta->interface, INTF_SIZE);
+
+    if (( fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+    {
+        CcspTraceInfo(("%s %d Socket creation failed : %s", __FUNCTION__, __LINE__, strerror(errno)));
+        return;
+    }
+
+    memset(&ifr, 0x00, sizeof(ifr));
+    strcpy(ifr.ifr_name, ta->interface);
+    ifr.ifr_addr.sa_family = AF_INET;
+    if (ioctl(fd, SIOCGIFADDR, &ifr) < 0)
+    {
+        CcspTraceInfo(("%s %d Failed to get ip %s \n", __FUNCTION__, __LINE__, strerror(errno)));
+        close(fd);
+        return;
+    }
+    close(fd);
 
     CcspTraceInfo(("%s %d -TCP server thread started\n", __FUNCTION__, __LINE__));
     pthread_detach(pthread_self());
@@ -111,6 +195,8 @@ void tcp_server_thread(void *arg)
     if (!ssl_lib_init) {
         ssl_lib_init = true;
         SSL_library_init();
+        OpenSSL_add_all_algorithms();
+        SSL_load_error_strings();
     }
     if ((ctx = init_ctx()) == NULL) {
         CcspTraceError(("(%s:%d) SSL ctx creation failed!!\n", __FUNCTION__, __LINE__));
@@ -118,13 +204,13 @@ void tcp_server_thread(void *arg)
     }
     if (load_certificate(ctx) == -1) {
         CcspTraceError(("(%s:%d) Can't use certificate now!!\n", __FUNCTION__, __LINE__));
-	free(ctx);
-	close(master_sock_fd);
+        SSL_CTX_free(ctx);
+        close(master_sock_fd);
         return;
     }
 #endif
     servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = INADDR_ANY;
+    servaddr.sin_addr.s_addr = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr.s_addr;
     servaddr.sin_port = htons(port_no);
 
     rc = bind(master_sock_fd, (struct sockaddr *)&servaddr, sizeof(servaddr));
@@ -132,8 +218,8 @@ void tcp_server_thread(void *arg)
     if(rc < 0)
     {
         CcspTraceInfo(("\nIDM Server socket bind failed\n"));
-	free(ctx);
-	close(master_sock_fd);
+        SSL_CTX_free(ctx);
+        close(master_sock_fd);
         return;
     }
 
@@ -142,8 +228,8 @@ void tcp_server_thread(void *arg)
     if(rc < 0)
     {
         CcspTraceInfo(("\nIDM server socket listen failed\n"));
-	free(ctx);
-	close(master_sock_fd);
+        SSL_CTX_free(ctx);
+        close(master_sock_fd);
         return;
     }
 
@@ -195,8 +281,38 @@ void tcp_server_thread(void *arg)
             ssl[i] = SSL_new(ctx);
             if (ssl[i] != NULL) {
                 SSL_set_fd(ssl[i], client_socket[i]);
-                if (SSL_accept(ssl[i]) <= 0) {
+                /* Acting as SSL socker server mode. By default server certificate will be validated by client
+                 Forcefully request client certificate */
+                CcspTraceInfo(("(%s:%d)requesting client's certificate\n", __FUNCTION__, __LINE__));
+                /* 1.Set client certificate validation
+                   2.Log error code in callback
+                   3.Do additional check in callback and forcefully terminate the handshake if required */
+                SSL_set_verify(ssl[i], SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, client_cert_verify_cb);
+                /* 1. Start handshake with mutual certificate authentication
+                   2. callback will be called during handshake */
+                if (SSL_accept(ssl[i]) <= 0) 
+                {
                     CcspTraceError(("(%s:%d)SSL handshake failed\n", __FUNCTION__, __LINE__));
+                    //For logging purpose
+                    X509 *peer_cert = SSL_get_peer_certificate(ssl[i]);
+                    if(peer_cert == NULL)
+                    {
+                        CcspTraceError(("(%s:%d)Peer certificate not present\n", __FUNCTION__, __LINE__));
+                    }
+                    else
+                    {
+                        free(peer_cert);
+                    }
+                    // free the resources
+                    SSL_free(ssl[i]);
+                    ssl[i] = NULL;
+                    client_socket[i] = 0;
+                }
+                else
+                {
+                    // At this point both client and server certificates are validated
+                    CcspTraceInfo(("(%s:%d)SSL Mutual authentication succeeded..\n", __FUNCTION__, __LINE__));
+                    CcspTraceInfo(("(%s:%d)SSL Connection Accepted..\n", __FUNCTION__, __LINE__));
                 }
             } else {
                 CcspTraceError(("(%s:%d) SSL session creation failed for client (%d)\n", __FUNCTION__, __LINE__, c_fd));
@@ -259,8 +375,14 @@ int open_remote_connection(connection_config_t* connectionConf, int (*connection
     struct sockaddr_in servaddr;
     int client_sockfd;
     bool enc_status = false;
+    TcpServerThreadArgs ta;
 
-    TcpServerThreadArgs ta = { rcv_message_cb,connectionConf->port};
+    memset (&ta,'\0',sizeof(TcpServerThreadArgs));
+
+    strncpy_s(ta.interface, sizeof(ta.interface), connectionConf->interface, INTF_SIZE);
+    ta.port = connectionConf->port;
+    ta.cb = rcv_message_cb;
+
     /* start tcp server */
     if(!TCP_server_started)
     {
@@ -309,31 +431,67 @@ int open_remote_connection(connection_config_t* connectionConf, int (*connection
     connection_info_t conn_info;
     conn_info.conn = client_sockfd;
 #ifndef IDM_DEBUG
+    const char *err_str;
+    int err;
     conn_info.enc.ctx = NULL;
     conn_info.enc.ssl = NULL;
+    int server_cert_status = 0;
 
     // Client encryption
     conn_info.enc.ssl = NULL;
     if (!ssl_lib_init) {
         ssl_lib_init = true;
         SSL_library_init();
+        OpenSSL_add_all_algorithms();
+        SSL_load_error_strings();
     }
     if ((conn_info.enc.ctx = init_ctx()) == NULL) {
         CcspTraceError(("(%s:%d) SSL ctx creation failed!!\n", __FUNCTION__, __LINE__));
         return -1;
     }
+    // when SSL connect is called , server will ask client certificate
+    // Prepare client certificate
+    if (load_certificate(conn_info.enc.ctx) == -1) {
+        CcspTraceError(("(%s:%d) Can't use certificate now!!\n", __FUNCTION__, __LINE__));
+        SSL_CTX_free(conn_info.enc.ctx);
+        return -1;
+    }
     if ((conn_info.enc.ssl = SSL_new(conn_info.enc.ctx)) == NULL) {
         CcspTraceError(("(%s:%d) SSL session creation failed!!\n", __FUNCTION__, __LINE__));
+        SSL_CTX_free(conn_info.enc.ctx);
         return -1;
     }
     SSL_set_fd(conn_info.enc.ssl, client_sockfd);
     if (SSL_connect(conn_info.enc.ssl) > 0) {
-        CcspTraceInfo(("Encryption status is set to true"));
+        CcspTraceInfo(("SSL connect: Mutual authentication succeeded..\n"));
         enc_status = true;
     }
     else
     {
-        CcspTraceInfo(("Encryption status is set to false"));
+        CcspTraceInfo(("SSL connect failed\n"));
+        CcspTraceInfo(("Encryption status is set to false\n"));
+        // Find out the reason if this is peer certificate issue
+        X509 *peer_cert = NULL;
+        if((peer_cert = SSL_get_peer_certificate(conn_info.enc.ssl)) != NULL) 
+        {
+            CcspTraceInfo(("(%s:%d)Server certificate received\n", __FUNCTION__, __LINE__));
+            // parse the certificate for any error
+            if ((server_cert_status = SSL_get_verify_result(conn_info.enc.ssl) != X509_V_OK)) 
+            {
+                err_str = X509_verify_cert_error_string(server_cert_status);
+                CcspTraceInfo(("(%s:%d)Server certificate Error:%s\n", __FUNCTION__, __LINE__, err_str));
+            }
+            free(peer_cert);
+        }
+        else
+        {
+            CcspTraceInfo(("(%s:%d)Server certificate is unavailable\n", __FUNCTION__, __LINE__));
+        }
+        // free resources
+        SSL_CTX_free(conn_info.enc.ctx);
+        SSL_free(conn_info.enc.ssl);
+        conn_info.enc.ssl = NULL;
+        client_sockfd = 0;
     }
 #else
     CcspTraceError(("(%s:%d) Refactor Disabled. Continue Connection without encryption\n", __FUNCTION__, __LINE__));
