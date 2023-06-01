@@ -151,6 +151,18 @@ ANSC_STATUS Idm_Create_Rbus_Obj()
         pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries++;
         CcspTraceInfo(("%s %d - Number of entries : %d\n", __FUNCTION__, __LINE__,
                                         pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries));
+        
+        //Publish number of device entries if it is already subscribed
+        if( sidmRmSubStatus.idmRmDeviceNoofEntriesSubscribed )
+        {
+            CcspTraceInfo(("%s %d Publishing Event for dm '%s' Value '%d'\n",__FUNCTION__,__LINE__,RM_NUM_ENTRIES,pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries));
+            Idm_PublishDmEvent(RM_NUM_ENTRIES,&pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries);
+        } 
+        else
+        {
+            CcspTraceInfo(("%s %d - %s  not yet subscribed \n", __FUNCTION__, __LINE__, RM_NUM_ENTRIES));
+        }
+
     }
     else
     {
