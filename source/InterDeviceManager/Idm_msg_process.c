@@ -949,6 +949,7 @@ void IDM_Incoming_req_handler_thread()
             pidmDmlInfo = IdmMgr_GetConfigData_locked();
             if( pidmDmlInfo == NULL )
             {
+                free(ReqEntry);
                 return  ANSC_STATUS_FAILURE;
             }
             IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;

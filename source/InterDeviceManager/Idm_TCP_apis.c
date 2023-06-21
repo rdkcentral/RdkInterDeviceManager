@@ -209,6 +209,7 @@ void tcp_server_thread(void *arg)
                 memset((void *)&buffer, 0, sizeof(payload_t));
 #ifndef IDM_DEBUG
                 ret = SSL_read(ssl[i], (void *)&buffer, sizeof(payload_t));
+                usleep(150000);
 #else
                 ret = read( sd , (void *)&buffer, sizeof(payload_t));
 #endif

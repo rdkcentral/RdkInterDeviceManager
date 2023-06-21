@@ -298,6 +298,8 @@ ANSC_STATUS Idm_PublishDmEvent(char *dm_event, void *dm_value)
             break;
         default:
             CcspTraceInfo(("%s %d - Cannot identify event type %d\n", __FUNCTION__, __LINE__, type));
+            rbusValue_Release(value);
+            rbusObject_Release(rdata); 
             return ANSC_STATUS_FAILURE;
     }
     event.name = dm_event;
@@ -307,10 +309,14 @@ ANSC_STATUS Idm_PublishDmEvent(char *dm_event, void *dm_value)
     {
         // no need to publish FT status if there is no subscribers. This is a success case
         CcspTraceInfo(("%s %d -  no subscribers for %s. Not publishing\n", __FUNCTION__, __LINE__, dm_event));
+        rbusValue_Release(value);
+        rbusObject_Release(rdata);
         return ANSC_STATUS_SUCCESS;
     }
     if(rbusEvent_Publish(rbusHandle, &event) != RBUS_ERROR_SUCCESS) {
         CcspTraceInfo(("%s %d - event pusblishing failed for type %d\n", __FUNCTION__, __LINE__, type));
+        rbusValue_Release(value);
+        rbusObject_Release(rdata);
         return ANSC_STATUS_FAILURE;
     }
     CcspTraceInfo(("%s %d - Successfully Pusblished event for event %s \n", __FUNCTION__, __LINE__, dm_event));
@@ -370,6 +376,7 @@ ANSC_STATUS Idm_PublishDeviceChangeEvent(IDM_DeviceChangeEvent * pDeviceChangeEv
     event.type = RBUS_EVENT_GENERAL;
 
     if (rbusEvent_Publish(rbusHandle, &event) != RBUS_ERROR_SUCCESS) {
+        rbusObject_Release(rdata);
         return ANSC_STATUS_FAILURE;
     }
     CcspTraceInfo(("%s %d - Successfully Pusblished new device event RM_NEW_DEVICE_FOUND\n", __FUNCTION__, __LINE__));
@@ -386,8 +393,6 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
     rbusValue_t value;
     uint32_t index = 0;
 
-    rbusValue_Init(&value);
-
      PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
      if( pidmDmlInfo == NULL )
      {
@@ -401,6 +406,8 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
         return RBUS_ERROR_BUS_ERROR;   
     }
 
+    rbusValue_Init(&value);
+
     if(strstr(name, ".Status"))
     {
         sscanf(name, "Device.X_RDK_Remote.Device.%d.Status", &index);
@@ -410,6 +417,7 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
         {
             CcspTraceInfo(("%s %d - index node for %d is NULL\n", __FUNCTION__, __LINE__, index));
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            rbusValue_Release(value);
             return RBUS_ERROR_BUS_ERROR;   
         }
         rbusValue_SetUInt32(value, index_node->stRemoteDeviceInfo.Status);
@@ -423,6 +431,7 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
         {
             CcspTraceInfo(("%s %d - index node for %d is NULL\n", __FUNCTION__, __LINE__, index));
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            rbusValue_Release(value);
             return RBUS_ERROR_BUS_ERROR;
         }
         rbusValue_SetUInt32(value, index_node->stRemoteDeviceInfo.HelloInterval);
@@ -435,6 +444,7 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
         {
             CcspTraceInfo(("%s %d - index node for %d is NULL\n", __FUNCTION__, __LINE__, index));
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            rbusValue_Release(value);
             return RBUS_ERROR_BUS_ERROR;   
         }
         rbusValue_SetString(value, index_node->stRemoteDeviceInfo.MAC);
@@ -447,6 +457,7 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
         {
             CcspTraceInfo(("%s %d - index node for %d is NULL\n", __FUNCTION__, __LINE__, index));
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            rbusValue_Release(value);
             return RBUS_ERROR_BUS_ERROR;   
         }
         rbusValue_SetString(value, index_node->stRemoteDeviceInfo.IPv4);
@@ -459,6 +470,7 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
         {
             CcspTraceInfo(("%s %d - index node for %d is NULL\n", __FUNCTION__, __LINE__, index));
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            rbusValue_Release(value);
             return RBUS_ERROR_BUS_ERROR;   
         }
         rbusValue_SetString(value, index_node->stRemoteDeviceInfo.IPv6);
@@ -471,6 +483,7 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
         {
             CcspTraceInfo(("%s %d - index node for %d is NULL\n", __FUNCTION__, __LINE__, index));
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            rbusValue_Release(value);
             return RBUS_ERROR_BUS_ERROR;   
         }
         rbusValue_SetString(value, index_node->stRemoteDeviceInfo.Capabilities);
@@ -483,6 +496,7 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
         {
             CcspTraceInfo(("%s %d - index node for %d is NULL\n", __FUNCTION__, __LINE__, index));
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            rbusValue_Release(value);
             return RBUS_ERROR_BUS_ERROR;   
         }
         rbusValue_SetString(value, index_node->stRemoteDeviceInfo.ModelNumber);
@@ -494,6 +508,7 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
         {
             CcspTraceInfo(("%s %d - Failed to get number of entries\n", __FUNCTION__, __LINE__));
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            rbusValue_Release(value);
             return RBUS_ERROR_BUS_ERROR;   
         }
         
@@ -507,6 +522,7 @@ rbusError_t X_RDK_Remote_Device_GetHandler(rbusHandle_t handle, rbusProperty_t p
         {
             CcspTraceInfo(("%s %d - Failed to get remote port\n", __FUNCTION__, __LINE__));
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            rbusValue_Release(value);
             return RBUS_ERROR_BUS_ERROR;
         }
 
@@ -809,12 +825,13 @@ rbusError_t X_RDK_Connection_GetHandler(rbusHandle_t handle, rbusProperty_t prop
     (void)opts;
     rbusValue_t value;
     char const* name;
-    rbusValue_Init(&value);
-    name = rbusProperty_GetName(property);
 
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if(pidmDmlInfo == NULL)
         return RBUS_ERROR_BUS_ERROR;
+
+    rbusValue_Init(&value);
+    name = rbusProperty_GetName(property);
 
     if(strcmp(name, "Device.X_RDK_Connection.HelloInterval") == 0)
     {
@@ -843,6 +860,7 @@ rbusError_t X_RDK_Connection_GetHandler(rbusHandle_t handle, rbusProperty_t prop
     else
     {
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+        rbusValue_Release(value);
         return RBUS_ERROR_BUS_ERROR;
     }
 

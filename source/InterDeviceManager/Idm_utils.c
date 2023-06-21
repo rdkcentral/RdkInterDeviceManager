@@ -275,6 +275,8 @@ int IDM_RdkBus_SetParamValuesToDB( char *pParamName, char *pParamVal )
     if(false == rbusValue_SetFromString(value, RBUS_STRING, pParamVal))
     {
         CcspTraceError(("%s:Invalid value '%s' for the parameter %s\n\r", __FUNCTION__, pParamVal, pParamName));
+        rbusValue_Release(value);
+        rbusObject_Release(inParams);
         return -1;
     }
 
@@ -288,6 +290,7 @@ int IDM_RdkBus_SetParamValuesToDB( char *pParamName, char *pParamVal )
     {
 
         CcspTraceError(("%s failed for SetPSMRecordValue() with err: '%s'\n\r",__FUNCTION__, rbusError_ToString(rc)));
+        rbusObject_Release(inParams);
         return -1;
     }
     

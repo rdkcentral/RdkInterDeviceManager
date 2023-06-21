@@ -71,6 +71,7 @@ int rcv_message_cb( connection_info_t* conn_info, void *payload)
         CcspTraceInfo(("%s:%d status=%s\n",__FUNCTION__,__LINE__,pidmDmlInfo->stRemoteInfo.ft_status));
         Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",(pidmDmlInfo->stRemoteInfo.ft_status));
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+        usleep(100000);
     }
     else if(recvData->operation == SFT_RES)
     {
