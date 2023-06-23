@@ -24,7 +24,7 @@
 #ifndef  _IDM_UTILS_H_
 #define  _IDM_UTILS_H_
 
-#include "Idm_rbus.h"
+//#include "Idm_rbus.h"
 #define  ARRAY_SZ(x) (sizeof(x) / sizeof((x)[0]))
 
 typedef enum _EVENT_DATA_TYPES
@@ -32,7 +32,8 @@ typedef enum _EVENT_DATA_TYPES
     EV_BOOLEAN = 1,
     EV_INTEGER,
     EV_STRING,
-    EV_UNSIGNEDINT
+    EV_UNSIGNEDINT,
+    EV_UNKNOWN
 
 }EVENT_DATA_TYPES;
 

@@ -187,7 +187,7 @@ int connection_cb(device_info_t* Device, connection_info_t* conn_info, uint encr
     //Send request to get Capabilities
     idm_send_msg_Params_t param;
     memset(&param, 0, sizeof(param));
-    strncpy(param.Mac_dest, Device->mac_addr,MAC_ADDR_SIZE);
+    strncpy(param.Mac_dest, Device->mac_addr,MAC_ADDR_SIZE-1);
     param.timeout = DEFAULT_IDM_REQUEST_TIMEOUT;
     param.operation = IDM_REQUEST;
     param.resCb = NULL;
@@ -203,14 +203,14 @@ int connection_cb(device_info_t* Device, connection_info_t* conn_info, uint encr
         IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
         while(remoteDevice!=NULL)
         {
-            if(strcmp(remoteDevice->stRemoteDeviceInfo.MAC, Device->mac_addr) == 0)
+	    if(strcmp(remoteDevice->stRemoteDeviceInfo.MAC, Device->mac_addr) == 0)
             {
 
                 break;
             }
             remoteDevice=remoteDevice->next;
         }
-        if(encryption_status)
+        if((encryption_status) && (remoteDevice))
         {
             if(remoteDevice->stRemoteDeviceInfo.Status == DEVICE_CONNECTED || remoteDevice->stRemoteDeviceInfo.Status == DEVICE_NOT_DETECTED)
             {
@@ -284,6 +284,7 @@ int discovery_cb(device_info_t* Device, uint discovery_status, uint authenticati
 void discovery_cb_thread(void *arg)
 {
     Discovery_cb_threadargs *threadArgs = (Discovery_cb_threadargs*) arg;
+    errno_t rc = -1;
 
     device_info_t* Device = &(threadArgs->device);
     uint discovery_status = threadArgs->discovery_status;
@@ -345,13 +346,17 @@ void discovery_cb_thread(void *arg)
             else if(discovery_status)
                 remoteDevice->stRemoteDeviceInfo.Status = DEVICE_DETECTED;
 
+	    rc = strcpy_s(remoteDevice->stRemoteDeviceInfo.IPv4, sizeof(remoteDevice->stRemoteDeviceInfo.IPv4), Device->ipv4_addr);
+            ERR_CHK(rc);
+	    rc = strcpy_s(remoteDevice->stRemoteDeviceInfo.IPv6, sizeof(remoteDevice->stRemoteDeviceInfo.IPv6), Device->ipv6_addr);
+            ERR_CHK(rc);
 
-            strncpy(remoteDevice->stRemoteDeviceInfo.IPv4, Device->ipv4_addr, IPv4_ADDR_SIZE);
-            strncpy(remoteDevice->stRemoteDeviceInfo.IPv6, Device->ipv6_addr, IPv6_ADDR_SIZE);
             /* Create link */
             connection_config_t connectionConf;
             memset(&connectionConf, 0, sizeof(connection_config_t));
-            strncpy(connectionConf.interface, pidmDmlInfo->stConnectionInfo.Interface,sizeof(connectionConf.interface));
+            rc = strcpy_s(connectionConf.interface, sizeof(connectionConf.interface), pidmDmlInfo->stConnectionInfo.Interface);
+            ERR_CHK(rc);
+
             connectionConf.port = pidmDmlInfo->stRemoteInfo.Port;
             connectionConf.device = Device;
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
@@ -376,7 +381,6 @@ void discovery_cb_thread(void *arg)
         //Create new entry in remote deice list
         IDM_REMOTE_DEVICE_LINK_INFO *newNode = NULL;
         newNode = (IDM_REMOTE_DEVICE_LINK_INFO*)AnscAllocateMemory(sizeof(IDM_REMOTE_DEVICE_LINK_INFO));
-        memset(newNode, 0, sizeof(IDM_REMOTE_DEVICE_LINK_INFO));
 
         if( newNode == NULL )
         {
@@ -384,6 +388,7 @@ void discovery_cb_thread(void *arg)
             free(threadArgs);
             return  -1;
         }
+        memset(newNode, 0, sizeof(IDM_REMOTE_DEVICE_LINK_INFO));
         if(authentication_status)
             newNode->stRemoteDeviceInfo.Status = DEVICE_AUTHENTICATED;
         else if(discovery_status)
@@ -392,9 +397,12 @@ void discovery_cb_thread(void *arg)
         newNode->stRemoteDeviceInfo.Index = pidmDmlInfo->stRemoteInfo.ulDeviceNumberOfEntries;
         newNode->stRemoteDeviceInfo.Index++;
         //TODO: convert MAC address to Uppercase
-        strncpy(newNode->stRemoteDeviceInfo.MAC, Device->mac_addr, MAC_ADDR_SIZE);
-        strncpy(newNode->stRemoteDeviceInfo.IPv4, Device->ipv4_addr, IPv4_ADDR_SIZE);
-        strncpy(newNode->stRemoteDeviceInfo.IPv6, Device->ipv6_addr, IPv6_ADDR_SIZE);
+        rc = strcpy_s(newNode->stRemoteDeviceInfo.MAC, sizeof(newNode->stRemoteDeviceInfo.MAC), Device->mac_addr);
+	ERR_CHK(rc);
+        rc = strcpy_s(newNode->stRemoteDeviceInfo.IPv4, sizeof(newNode->stRemoteDeviceInfo.IPv4), Device->ipv4_addr);
+	ERR_CHK(rc);
+        rc = strcpy_s(newNode->stRemoteDeviceInfo.IPv6, sizeof(newNode->stRemoteDeviceInfo.IPv6), Device->ipv6_addr);
+	ERR_CHK(rc);
 
         newNode->stRemoteDeviceInfo.conn_info.conn = 0;
 

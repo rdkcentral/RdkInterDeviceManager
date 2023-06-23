@@ -36,8 +36,7 @@ RecvSubscriptionList *headRecvSubscriptionList = NULL;
 
 uint gReqIdCounter = 0;
 extern rbusHandle_t        rbusHandle;
-
-extern Capabilities_get_cb(IDM_REMOTE_DEVICE_INFO *device, ANSC_STATUS status ,char *mac);
+extern void Capabilities_get_cb(IDM_REMOTE_DEVICE_INFO *device, ANSC_STATUS status ,char *mac);
 
 static rbusValueType_t IDM_rbusValueChange_GetDataType(enum dataType_e dt)
 {
@@ -143,7 +142,8 @@ void IDM_addToReceivedSubscriptionList( RecvSubscriptionList *newSubscription)
 ANSC_STATUS IDM_sendFile_to_Remote_device(char* Mac_dest,char* filename,char* output_location)
 {
     CcspTraceDebug(("Inside %s:%d\n",__FUNCTION__,__LINE__));
-    int match=0,rc=-1,ind=0;
+    int match=0,ind=0;
+    errno_t rc = -1;
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
     {
@@ -161,11 +161,15 @@ ANSC_STATUS IDM_sendFile_to_Remote_device(char* Mac_dest,char* filename,char* ou
                 memset(&payload, 0, sizeof(payload_t));
                 payload.operation = SFT;
                 payload.msgType = SFT;
-                strncpy(payload.Mac_source, localDevice->stRemoteDeviceInfo.MAC,MAC_ADDR_SIZE);
-                strncpy(payload.param_name,filename,sizeof(payload.param_name));
-                CcspTraceDebug(("Inside %s:%d peer MAC=%s\n",__FUNCTION__,__LINE__,Mac_dest,localDevice->stRemoteDeviceInfo.MAC));
-                strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,sendFile_to_remote(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload,output_location));
-                Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+                strncpy(payload.Mac_source, localDevice->stRemoteDeviceInfo.MAC,MAC_ADDR_SIZE-1);
+                strncpy(payload.param_name,filename,sizeof(payload.param_name)-1);
+                CcspTraceDebug(("Inside %s:%d peer MAC=%s\n",__FUNCTION__,__LINE__,Mac_dest));
+                rc = strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,sendFile_to_remote(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload,output_location));
+                ERR_CHK(rc);
+	        if(rc == EOK)
+                {
+                    Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+                }
                 rc = strcmp_s(FT_SUCCESS,strlen(FT_SUCCESS),pidmDmlInfo->stRemoteInfo.ft_status,&ind);
                 ERR_CHK(rc);
                 if(rc != EOK || ind)
@@ -181,8 +185,12 @@ ANSC_STATUS IDM_sendFile_to_Remote_device(char* Mac_dest,char* filename,char* ou
             else
             {
                 CcspTraceError(("%s: conn value is equals to zero\n",__FUNCTION__));
-                strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,FT_ERROR);
-                Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+                rc = strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,FT_ERROR);
+                ERR_CHK(rc);
+	        if(rc == EOK)
+                {
+                    Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+                }
                 IdmMgrDml_GetConfigData_release(pidmDmlInfo);
                 return  ANSC_STATUS_FAILURE;
             }
@@ -194,8 +202,12 @@ ANSC_STATUS IDM_sendFile_to_Remote_device(char* Mac_dest,char* filename,char* ou
     }
     if(match == 0)
     {
-        strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,FT_INVALID_DST_MAC);
-        Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+        rc = strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,FT_INVALID_DST_MAC);
+        ERR_CHK(rc);
+	if(rc == EOK)
+        {
+             Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+        }
     }
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return ANSC_STATUS_SUCCESS;
@@ -205,6 +217,7 @@ ANSC_STATUS IDM_getFile_from_Remote_device(char* Mac_dest,char* filename,char* o
 {
     CcspTraceDebug(("Inside %s:%d\n",__FUNCTION__,__LINE__));
     int match = 0;
+    errno_t rc = -1;
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
     {
@@ -222,27 +235,34 @@ ANSC_STATUS IDM_getFile_from_Remote_device(char* Mac_dest,char* filename,char* o
                 payload_t payload;
                 memset(&payload, 0, sizeof(payload_t));
                 sendReqList *newReq = malloc(sizeof(sendReqList));
-                memset(newReq, 0, sizeof(sendReqList));
-                newReq->reqId = gReqIdCounter++;
-                strncpy(newReq->Mac_dest,Mac_dest, MAC_ADDR_SIZE);
-                payload.operation = GFT;
-                payload.msgType = REQ;
-                strncpy(payload.Mac_source, localDevice->stRemoteDeviceInfo.MAC,MAC_ADDR_SIZE);
-                strncpy(payload.param_name,filename,sizeof(payload.param_name));
-                strncpy(newReq->output_location,output_location,strlen(output_location));
-                payload.reqID = newReq->reqId;
-                IDM_addToSendRequestList(newReq);
-                CcspTraceDebug(("Inside %s:%d peer MAC=%s\n",__FUNCTION__,__LINE__,Mac_dest));
-                send_remote_message(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload);
-                usleep(250000);
-                match = 1;
+                if (newReq != NULL) {
+                    memset(newReq, 0, sizeof(sendReqList));
+                    newReq->reqId = gReqIdCounter++;
+                    strncpy(newReq->Mac_dest,Mac_dest, MAC_ADDR_SIZE-1);
+                    payload.operation = GFT;
+                    payload.msgType = REQ;
+                    strncpy(payload.Mac_source, localDevice->stRemoteDeviceInfo.MAC,MAC_ADDR_SIZE-1);
+                    strncpy(payload.param_name,filename,sizeof(payload.param_name)-1);
+                    strncpy(newReq->output_location,output_location,sizeof(newReq->output_location)-1);
+                    payload.reqID = newReq->reqId;
+                    IDM_addToSendRequestList(newReq);
+                    CcspTraceDebug(("Inside %s:%d peer MAC=%s\n",__FUNCTION__,__LINE__,Mac_dest));
+                    send_remote_message(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload);
+                    usleep(250000);
+                    match = 1;
+		}
                 break;
             }
             else
             {
                 CcspTraceError(("%s: conn value is equals to zero\n",__FUNCTION__));
-                strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,FT_ERROR);
-                Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+                rc = strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,FT_ERROR);
+                ERR_CHK(rc);
+		if(rc == EOK)
+                {
+                    Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+                }
+
                 IdmMgrDml_GetConfigData_release(pidmDmlInfo);
                 return  ANSC_STATUS_FAILURE;
             }
@@ -254,8 +274,12 @@ ANSC_STATUS IDM_getFile_from_Remote_device(char* Mac_dest,char* filename,char* o
     }
     if(match == 0)
     {
-        strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,FT_INVALID_DST_MAC);        
-        Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+        rc = strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,FT_INVALID_DST_MAC);        
+        ERR_CHK(rc);
+	if(rc == EOK)
+        {
+             Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+        }
     }
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return ANSC_STATUS_SUCCESS;
@@ -285,32 +309,36 @@ ANSC_STATUS IDM_sendMsg_to_Remote_device(idm_send_msg_Params_t *param)
                 {
                     /* Create request entry */
                     sendReqList *newReq = malloc(sizeof(sendReqList));
-                    memset(newReq, 0, sizeof(sendReqList));
-                    newReq->reqId = gReqIdCounter++;
-                    strncpy(newReq->Mac_dest,param->Mac_dest, MAC_ADDR_SIZE);
-                    newReq->resCb = param->resCb;
-                    newReq->timeout = param->timeout;
-                    newReq->next = NULL;
+		    if (newReq != NULL) {
+                   	memset(newReq, 0, sizeof(sendReqList));
+                        newReq->reqId = gReqIdCounter++;
+                        strncpy(newReq->Mac_dest,param->Mac_dest, sizeof(newReq->Mac_dest)-1);
+                        newReq->resCb = param->resCb;
+                        newReq->timeout = param->timeout;
+                        newReq->next = NULL;
 
-                    IDM_addToSendRequestList(newReq);
-                    payload.reqID = newReq->reqId;
+                        IDM_addToSendRequestList(newReq);
+                        payload.reqID = newReq->reqId;
+		    }
                 }else if(param->operation == IDM_SUBS)
                 {
                     /* Create request entry */
                     sendSubscriptionList *newReq = malloc(sizeof(sendSubscriptionList));
-                    memset(newReq, 0, sizeof(sendSubscriptionList));
-                    newReq->reqId = gReqIdCounter++;
-                    newReq->resCb = param->resCb;
-                    newReq->next = NULL;
-                    IDM_addToSendSubscriptionuestList(newReq);
-                    payload.reqID = newReq->reqId;
+		    if (newReq != NULL) {
+                        memset(newReq, 0, sizeof(sendSubscriptionList));
+                        newReq->reqId = gReqIdCounter++;
+                        newReq->resCb = param->resCb;
+                        newReq->next = NULL;
+                        IDM_addToSendSubscriptionuestList(newReq);
+                        payload.reqID = newReq->reqId;
+		    }
                 }
 
                 payload.operation = param->operation;
                 payload.msgType = REQ;
-                strncpy(payload.Mac_source, localDevice->stRemoteDeviceInfo.MAC,MAC_ADDR_SIZE);
-                strncpy(payload.param_name,param->param_name,sizeof(payload.param_name));
-                strncpy(payload.param_value,param->param_value,sizeof(payload.param_value));
+                strncpy(payload.Mac_source, localDevice->stRemoteDeviceInfo.MAC,sizeof(payload.Mac_source)-1);
+                strncpy(payload.param_name,param->param_name,sizeof(payload.param_name)-1);
+                strncpy(payload.param_value,param->param_value,sizeof(payload.param_value)-1);
                 payload.type = param->type;
 
                 /* send message */
@@ -343,14 +371,11 @@ char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
             CcspTraceError(("%s:%d req is null\n",__FUNCTION__,__LINE__));
             return FT_ERROR;
         }
-        else
-        {
-            free(req);
-        }
         rc = strcmp_s(FT_INVALID_FILE_NAME,strlen(FT_INVALID_FILE_NAME),payload->param_value,&ind);
         ERR_CHK(rc);
         if((!ind) && (rc == EOK))
         {
+            free(req);
             return FT_INVALID_SRC_PATH;
         }
         rc = strcmp_s(FT_FILE_SIZE_EXCEED,strlen(FT_FILE_SIZE_EXCEED),payload->param_value,&ind);
@@ -358,6 +383,7 @@ char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
         if((!ind) && (rc == EOK))
         {
             CcspTraceError(("%s %d transfer file size exceeded on peer device\n",__FUNCTION__,__LINE__));
+            free(req);
             return FT_INVALID_FILE_SIZE;
         }
         total_bytes=atoi(payload->param_value);
@@ -366,12 +392,14 @@ char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
         if( pidmDmlInfo == NULL )
         {
             CcspTraceError(("%s:%d DmlInfo is NULL\n",__FUNCTION__,__LINE__));
+	    free(req);
             return  FT_ERROR;
         }
         if(total_bytes > (pidmDmlInfo->stRemoteInfo.max_file_size))
         {
             CcspTraceError(("%s:%d transfer file size exceeded on self device compared to %d configured value\n",__FUNCTION__,__LINE__,(pidmDmlInfo->stRemoteInfo.max_file_size)));
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+	    free(req);
             return FT_INVALID_FILE_SIZE;
         }
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
@@ -446,6 +474,7 @@ char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
 int IDM_Incoming_Response_handler(payload_t * payload)
 {
     rbusMethodAsyncHandle_t async_callBack_handler;
+    rbusError_t ret = RBUS_ERROR_SUCCESS;
     /* find req entry in LL */
     if(payload->operation == IDM_SUBS)
     {
@@ -482,7 +511,7 @@ int IDM_Incoming_Response_handler(payload_t * payload)
     {
         rbusObject_t outParams;
         rbusValue_t value;
-        rbusError_t err;
+        rbusError_t err= RBUS_ERROR_SUCCESS;
 
         rbusObject_Init(&outParams, NULL);
 
@@ -518,7 +547,11 @@ int IDM_Incoming_Response_handler(payload_t * payload)
             event.type = RBUS_EVENT_GENERAL;
 
             CcspTraceInfo(("%s sending rbus Subcription responce using RM_REMOTE_INVOKE publish\n", __FUNCTION__));
-            rbusEvent_Publish(rbusHandle, &event);
+            err = rbusEvent_Publish(rbusHandle, &event);
+            if(err != RBUS_ERROR_SUCCESS)
+            {
+                CcspTraceInfo(("%s rbusEvent_Publish failed err:%d\n", __FUNCTION__, err));
+            }
 
         }else
         {
@@ -604,10 +637,10 @@ static void IDM_Rbus_subscriptionEventHandler(rbusHandle_t handle, rbusEvent_t c
             payload.operation = IDM_SUBS;
             payload.msgType = RES;
             payload.reqID = req->reqId;
-            strncpy(payload.Mac_source,remoteDevice->stRemoteDeviceInfo.MAC,MAC_ADDR_SIZE);
-            strncpy(payload.param_name,req->param_name,sizeof(payload.param_name));
+            strncpy(payload.Mac_source,remoteDevice->stRemoteDeviceInfo.MAC, sizeof(payload.Mac_source)-1);
+            strncpy(payload.param_name,req->param_name,sizeof(payload.param_name)-1);
             //Convert rbus value to string.
-            rbusValue_ToString(valBuff,payload.param_value,sizeof(payload.param_value));
+            rbusValue_ToString(valBuff,payload.param_value, sizeof(payload.param_value)-1);
             payload.status =  ANSC_STATUS_SUCCESS;
 
             while(remoteDevice!=NULL)
@@ -796,36 +829,42 @@ char* IDM_SFT_receive(connection_info_t* conn_info,void* payload)
 int IDM_Incoming_Request_handler(payload_t * payload)
 {
     CcspTraceInfo(("%s %d - \n", __FUNCTION__, __LINE__));
+    rbusError_t err= RBUS_ERROR_SUCCESS;
 
     if(payload->operation == IDM_SUBS)
     {
         /*Create entry in incoming subscription list */
         RecvSubscriptionList *getReq =  malloc(sizeof(RecvSubscriptionList));
-        memset(getReq, 0, sizeof(RecvSubscriptionList));
-        strncpy(getReq->Mac_dest, payload->Mac_source,sizeof(getReq->Mac_dest));
-        strncpy(getReq->param_name, payload->param_name,sizeof(getReq->param_name));
-        getReq->reqId = payload->reqID;
-        IDM_addToReceivedSubscriptionList(getReq);
-
+        if (getReq != NULL) {
+            memset(getReq, 0, sizeof(RecvSubscriptionList));
+            strncpy(getReq->Mac_dest, payload->Mac_source,sizeof(getReq->Mac_dest)-1);
+            strncpy(getReq->param_name, payload->param_name,sizeof(getReq->param_name)-1);
+            getReq->reqId = payload->reqID;
+            IDM_addToReceivedSubscriptionList(getReq);
+	}
         //TODO: check timeout and userdata
-        rbusEvent_Subscribe(rbusHandle, payload->param_name, IDM_Rbus_subscriptionEventHandler, NULL, 0);
-
-
+        err = rbusEvent_Subscribe(rbusHandle, payload->param_name, IDM_Rbus_subscriptionEventHandler, NULL, 0);
+        if(err != RBUS_ERROR_SUCCESS)
+        {
+            CcspTraceInfo(("%s rbusEvent_Publish failed err:%d\n", __FUNCTION__, err));
+        }
     }else
     {
         /*Create entry in incoming req list */
         RecvReqList *getReq = malloc(sizeof(RecvReqList));
-        memset(getReq, 0, sizeof(RecvReqList));
-        getReq->reqId = payload->reqID;
-        getReq->operation = payload->operation;
-        getReq->timeout = payload->timeout;
-        getReq->type = payload->type;
-        getReq->file_length = payload->file_length;
-        strncpy(getReq->Mac_dest, payload->Mac_source,sizeof(getReq->Mac_dest));
-        strncpy(getReq->param_name, payload->param_name,sizeof(getReq->param_name));
-        strncpy(getReq->param_value, payload->param_value,sizeof(getReq->param_value));
-        getReq->next = NULL;
-        IDM_addToReceivedReqList(getReq);
+        if (getReq != NULL) {
+            memset(getReq, 0, sizeof(RecvReqList));
+            getReq->reqId = payload->reqID;
+            getReq->operation = payload->operation;
+            getReq->timeout = payload->timeout;
+            getReq->type = payload->type;
+            getReq->file_length = payload->file_length;
+            strncpy(getReq->Mac_dest, payload->Mac_source,sizeof(getReq->Mac_dest)-1);
+            strncpy(getReq->param_name, payload->param_name,sizeof(getReq->param_name)-1);
+            strncpy(getReq->param_value, payload->param_value,sizeof(getReq->param_value)-1);
+            getReq->next = NULL;
+            IDM_addToReceivedReqList(getReq);
+	}
     }
     return 0;
 }
@@ -835,6 +874,7 @@ void IDM_Incoming_req_handler_thread()
     // event handler
     int n = 0;
     struct timeval tv;
+    errno_t ec = -1;
 
     PIDM_DML_INFO pidmDmlInfo = NULL;
     while(true)
@@ -915,8 +955,12 @@ void IDM_Incoming_req_handler_thread()
                 pidmDmlInfo = IdmMgr_GetConfigData_locked();
                 if( pidmDmlInfo == NULL )
                 {
-                    strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,FT_ERROR);
-                    Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+                    ec = strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,FT_ERROR);
+                    ERR_CHK(ec);
+	            if(ec == EOK)
+                    {
+                        Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+                    }
                 }
                 IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
                 payload.reqID = ReqEntry->reqId;
@@ -932,8 +976,12 @@ void IDM_Incoming_req_handler_thread()
                     {
                         if(remoteDevice->stRemoteDeviceInfo.conn_info.conn !=0)
                         {
-                            strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,getFile_to_remote(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload));
-                            Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+                            ec = strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,getFile_to_remote(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload));
+                            ERR_CHK(ec);
+	                    if(ec == EOK)
+                            {
+                                Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+                            }
                         }
                         break;
                     }
@@ -957,8 +1005,8 @@ void IDM_Incoming_req_handler_thread()
             payload.operation = ReqEntry->operation;
             payload.msgType = RES;
             /* Update local device mac */
-            strncpy(payload.Mac_source,remoteDevice->stRemoteDeviceInfo.MAC,MAC_ADDR_SIZE);
-            strncpy(payload.param_name,ReqEntry->param_name,sizeof(payload.param_name));
+            strncpy(payload.Mac_source,remoteDevice->stRemoteDeviceInfo.MAC, sizeof(payload.Mac_source)-1);
+            strncpy(payload.param_name,ReqEntry->param_name,sizeof(payload.param_name)-1);
             //Find the device using mac
             while(remoteDevice!=NULL)
             {
@@ -987,7 +1035,7 @@ void IDM_Broadcast_LocalDeviceInfo()
 
     pidmDmlInfo = IdmMgr_GetConfigData_locked();
     IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
-    if( pidmDmlInfo == NULL )
+    if(!pidmDmlInfo)
     {
         payload.status =  ANSC_STATUS_FAILURE;
     }
@@ -998,7 +1046,7 @@ void IDM_Broadcast_LocalDeviceInfo()
     payload.reqID = -1; //It's an Async message reqID not avaiable.
     payload.operation = IDM_REQUEST;
     payload.msgType = RES;
-    strncpy(payload.Mac_source,remoteDevice->stRemoteDeviceInfo.MAC,MAC_ADDR_SIZE);
+    strncpy(payload.Mac_source,remoteDevice->stRemoteDeviceInfo.MAC,sizeof(payload.Mac_source)-1);
 
     remoteDevice=remoteDevice->next; 
     while(remoteDevice!=NULL)

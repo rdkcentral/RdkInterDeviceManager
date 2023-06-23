@@ -149,7 +149,11 @@ EVENT_DATA_TYPES getEventType(char *event)
 
         if(strstr(event, ".Status") || strstr(event, ".HelloInterval"))
             return EV_INTEGER;
+    } else {
+        CcspTraceInfo(("event is null\n"));
+        return EV_UNKNOWN;
     }
+    return EV_UNKNOWN;
 }
 
 // Retun device node corresponding to index
@@ -225,6 +229,7 @@ int IDM_RdkBus_GetParamValuesFromDB( char *pParamName, char *pReturnVal, int ret
     rbusObject_t outParams = NULL;
     rbusObject_t inParams = NULL;
     rbusValue_t value = NULL;
+    char* propValue = NULL;
 
     rbusObject_Init(&inParams, NULL);
     rbusProperty_Init(&prop, pParamName, NULL) ;
@@ -246,7 +251,12 @@ int IDM_RdkBus_GetParamValuesFromDB( char *pParamName, char *pReturnVal, int ret
         value = rbusProperty_GetValue(prop);
         if(value)
         {
-            rbusValue_ToString(value,pReturnVal,(returnValLength - 1));
+            propValue = rbusValue_ToString(value, NULL, 0);
+            if (propValue)  {
+               /* use propValue in what you need then free it */
+               strncpy(pReturnVal, propValue, (returnValLength-1));
+               free(propValue);
+            }
         }
     }
 
@@ -312,6 +322,8 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
 {
     struct  ifreq ifr;
     int      fd = -1;
+    char wan_mac[18];// = {0};
+    memset(wan_mac,0,sizeof(wan_mac));
 
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
@@ -325,8 +337,8 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
         return ANSC_STATUS_FAILURE;
     }
 
-    memset(&ifr, 0x00, sizeof(ifr));
-    strcpy(ifr.ifr_name, pidmDmlInfo->stConnectionInfo.Interface);
+    memset(&ifr, 0, sizeof(ifr));
+    strncpy(ifr.ifr_name, pidmDmlInfo->stConnectionInfo.Interface, sizeof(ifr.ifr_name)-1);
 
     /*Local device info will be stored in first entry */
     IDM_REMOTE_DEVICE_LINK_INFO *localDevice = NULL;
@@ -335,9 +347,10 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
     {
         CcspTraceInfo(("[%s: %d] Update Local Device Data. Iface(%s)\n", __FUNCTION__, __LINE__, pidmDmlInfo->stConnectionInfo.Interface));
         /* get Interface MAC */
-        platform_hal_GetBaseMacAddress(localDevice->stRemoteDeviceInfo.MAC);
+        platform_hal_GetBaseMacAddress(wan_mac);
+        strncpy(localDevice->stRemoteDeviceInfo.MAC, wan_mac, sizeof(localDevice->stRemoteDeviceInfo.MAC)-1);
         platform_hal_GetModelName(localDevice->stRemoteDeviceInfo.ModelNumber);
-        strcpy(localDevice->stRemoteDeviceInfo.Capabilities, pidmDmlInfo->stConnectionInfo.Capabilities);
+        strncpy(localDevice->stRemoteDeviceInfo.Capabilities, pidmDmlInfo->stConnectionInfo.Capabilities, sizeof(localDevice->stRemoteDeviceInfo.Capabilities)-1);
         localDevice->stRemoteDeviceInfo.HelloInterval = pidmDmlInfo->stConnectionInfo.HelloInterval;
     }
 
@@ -397,6 +410,7 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
     pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
     {
+	close(fd);
         return  ANSC_STATUS_FAILURE;
     }
     /*Local device info will be stored in first entry */
@@ -411,13 +425,13 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
         /* get Interface IPv4 */
         ifr.ifr_addr.sa_family = AF_INET;
         ioctl(fd, SIOCGIFADDR, &ifr);
-        sprintf(localDevice->stRemoteDeviceInfo.IPv4,"%s",inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));
+        snprintf(localDevice->stRemoteDeviceInfo.IPv4, sizeof(localDevice->stRemoteDeviceInfo.IPv4), "%s",inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));
         ip_addr = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
 
         /* get IPv4 netmask */
         ioctl(fd, SIOCGIFNETMASK, &ifr);
         netMask.s_addr = ip_addr.s_addr & ((struct sockaddr_in *)&ifr.ifr_netmask)->sin_addr.s_addr;
-        sprintf(pidmDmlInfo->stConnectionInfo.HelloIPv4SubnetList,"%s/%u", inet_ntoa(netMask), cidrMask(((struct sockaddr_in *)&ifr.ifr_netmask)->sin_addr.s_addr));
+        snprintf(pidmDmlInfo->stConnectionInfo.HelloIPv4SubnetList, sizeof(pidmDmlInfo->stConnectionInfo.HelloIPv4SubnetList), "%s/%u", inet_ntoa(netMask), cidrMask(((struct sockaddr_in *)&ifr.ifr_netmask)->sin_addr.s_addr));
         CcspTraceInfo(("[%s: %d] HelloIPv4SubnetList %s \n", __FUNCTION__, __LINE__,pidmDmlInfo->stConnectionInfo.HelloIPv4SubnetList));
 
         close(fd);

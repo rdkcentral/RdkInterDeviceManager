@@ -28,7 +28,7 @@
 #include "inter_device_manager_internal.h"
 #include "inter_device_manager_global.h"
 #include "ccsp_trace.h"
-
+#include "ccsp_dm_api.h"
 #include "cap.h"
 cap_user appcaps;
 
@@ -155,7 +155,7 @@ int main(int argc, char* argv[])
     int                 idx = 0;
     int                 ind = -1;
     int                 cmdChar            = 0;
-    int                 err;
+    DmErr_t             err;
     char                *subSys = NULL;
     appcaps.caps = NULL;
     appcaps.user_name = NULL;
@@ -186,7 +186,8 @@ int main(int argc, char* argv[])
         {
             if((idx + 1) < argc)
             {
-                AnscCopyString(g_Subsystem, argv[idx+1]);
+		if ( AnscSizeOfString(argv[idx+1]) < sizeof(g_Subsystem))
+                    AnscCopyString(g_Subsystem, (char *)argv[idx+1]);
             }
             else
             {
