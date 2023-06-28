@@ -14,6 +14,7 @@
 
 RESTART_FILE=/tmp/idm_restart_attempts
 MAX_ATTEMPTS=5
+UPNP_FILE=/tmp/idm_upnp_not_operational
 #This function will check number of restart attempts. If it exceeds 5, no further restart is done
 
 function check_and_update_attempts()
@@ -50,6 +51,12 @@ function check_and_update_attempts()
 #indicates this script executed
 if [ ! -f  "$RESTART_FILE" ]; then
     touch $RESTART_FILE
+fi
+
+if [ -f "$UPNP_FILE" ]; then
+    rm -f "$UPNP_FILE"
+    systemctl restart RdkInterDeviceManager
+    exit 0
 fi
 
 INTERFACE=$(dmcli eRT getv Device.X_RDK_Connection.Interface | grep value: | awk -F: '{print $3}' | tr -d ' ')
