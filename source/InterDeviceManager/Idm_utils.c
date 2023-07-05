@@ -35,6 +35,8 @@ token_t sysevent_token;
 #define IDM_SYSNAME_SND          "IDM"
 #define SYSEVENT_OPEN_MAX_RETRIES   6
 #define DM_REMOTE_DEVICE_FT_STATUS "Device.X_RDK_Remote.FileTransferStatus()"
+#define INTERFACE_CHECK_TIME 2 // 2 seconds
+#define INTERFACE_MAX_WAIT_TIME (60/INTERFACE_CHECK_TIME) // 1 minute
 
 extern rbusHandle_t        rbusHandle;
 extern char         g_Subsystem[32];
@@ -368,11 +370,12 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
             break;
         }
         pidmDmlInfo = IdmMgr_GetConfigData_locked();
+        // set interface flag so that it will return ANSC_STATUS_DO_IT_AGAIN to get new interface details
         if(pidmDmlInfo)
         {
-            if(pidmDmlInfo->stConnectionInfo.Restart)
+            if(pidmDmlInfo->stConnectionInfo.InterfaceChanged)
             {
-                pidmDmlInfo->stConnectionInfo.Restart = FALSE;
+                pidmDmlInfo->stConnectionInfo.InterfaceChanged = FALSE;
                 IdmMgrDml_GetConfigData_release(pidmDmlInfo);
                 return ANSC_STATUS_DO_IT_AGAIN;
             }
@@ -393,11 +396,12 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
         }
 
         pidmDmlInfo = IdmMgr_GetConfigData_locked();
+        // set interface flag so that it will return ANSC_STATUS_DO_IT_AGAIN to get new interface details
         if(pidmDmlInfo)
         {
-            if(pidmDmlInfo->stConnectionInfo.Restart)
+            if(pidmDmlInfo->stConnectionInfo.InterfaceChanged)
             {
-                pidmDmlInfo->stConnectionInfo.Restart = FALSE;
+                pidmDmlInfo->stConnectionInfo.InterfaceChanged = FALSE;
                 IdmMgrDml_GetConfigData_release(pidmDmlInfo);
                 return ANSC_STATUS_DO_IT_AGAIN;
             }
@@ -461,3 +465,52 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return ANSC_STATUS_SUCCESS;
 }
+
+// This API will check if interfcae has IP address and operational
+// It will wait for interface to become up for a maximum wait time of 2 minutes
+bool checkInterfaceStatus(char *interface_name)
+{
+    struct  ifreq ifr;
+    int fd = -1;
+
+    if(interface_name == NULL)
+    {
+        return FALSE;
+    }
+
+    if (( fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+    {
+        return FALSE;
+    }
+    
+    memset(&ifr, 0, sizeof(ifr));
+
+    if(strlen(interface_name) > 0)
+    {
+        strncpy(ifr.ifr_name, interface_name, sizeof(ifr.ifr_name)-1 );
+        ifr.ifr_addr.sa_family = AF_INET;
+        // maximum wait time is 2 minute
+        int wait_time = 0;
+        while(wait_time < INTERFACE_MAX_WAIT_TIME)
+        {
+            if(ioctl(fd, SIOCGIFADDR, &ifr) >= 0)
+            {
+                // interface has IP address. Check if it is UP
+                ioctl(fd, SIOCGIFFLAGS, &ifr);
+
+                if((ifr.ifr_flags & ( IFF_UP | IFF_BROADCAST )) == ( IFF_UP | IFF_BROADCAST ))
+                {
+                    CcspTraceInfo(("%s:%d Interface %s is up\n", __FUNCTION__, __LINE__,interface_name));
+                    close(fd);
+                    return TRUE;
+                }
+            }
+            sleep(INTERFACE_CHECK_TIME);
+            wait_time++;
+        }
+        CcspTraceInfo(("%s:%d Wait time exceeded . %s is down\n", __FUNCTION__, __LINE__,interface_name));
+    }
+    close(fd);
+    return FALSE;
+}
+

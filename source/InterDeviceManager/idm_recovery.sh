@@ -59,6 +59,35 @@ if [ -f "$UPNP_FILE" ]; then
     exit 0
 fi
 
+MODE=$(dmcli eRT getv Device.X_RDKCENTRAL-COM_DeviceControl.DeviceNetworkingMode | grep value: | awk -F: '{print $3}' | tr -d ' ')
+
+if [ -z "$MODE" ]; then
+    exit 0
+fi
+
+#If mesh interface does not have IP, exit from recovery
+
+if [ "$MODE" = "0" ]; then
+    MESH_IP=$(ip a l br403 | awk '/inet/ {print $2}'| grep /24)
+    if [ -z "$MESH_IP" ]; then
+        exit 0
+    fi
+fi
+
+if [ "$MODE" = "1" ]; then
+    MESH_IP=$(ip a l br-home | awk '/inet/ {print $2}'| grep /24)
+    if [ -z "$MESH_IP" ]; then
+        exit 0
+    fi
+fi
+
+CONN_IF_PID=$(ps | grep Device.X_RDK_Connection.Interface | grep -v grep | awk '{print $1}')
+
+if [ -n "$CONN_IF_PID" ]; then
+    kill -9 $CONN_IF_PID
+fi
+
+
 INTERFACE=$(dmcli eRT getv Device.X_RDK_Connection.Interface | grep value: | awk -F: '{print $3}' | tr -d ' ')
 
 if [ "$INTERFACE" != "br-home" ] &&  [ "$INTERFACE" != "br403" ]; then
@@ -66,12 +95,6 @@ if [ "$INTERFACE" != "br-home" ] &&  [ "$INTERFACE" != "br403" ]; then
 fi
 
 MODEL=$(deviceinfo.sh -mo | tr -d '\r\n')
-
-MODE=$(dmcli eRT getv Device.X_RDKCENTRAL-COM_DeviceControl.DeviceNetworkingMode | grep value: | awk -F: '{print $3}' | tr -d ' ')
-
-if [ -z "$MODE" ]; then
-    exit 0
-fi
 
 if [ "$MODEL" == "WNXL11BWL" ] && [ "$MODE" == "0" ]; then
     exit 0
@@ -107,6 +130,12 @@ else
     sed -i '/reason=never_established/d' $RESTART_FILE
 fi
 
+CONN_IF_PID=$(ps | grep Device.X_RDK_Remote.Device.2.Status | grep -v grep | awk '{print $1}')
+
+if [ -n "$CONN_IF_PID" ]; then
+    kill -9 $CONN_IF_PID
+fi
+
 #idm was established initially. Now monitor the connection
 value=$(dmcli eRT getv Device.X_RDK_Remote.Device.2.Status | grep value: | awk -F: '{print $3}'| tr -d ' ') 
 if [ "$value" != "3" ]; then
@@ -134,6 +163,13 @@ while true
 do
     #check the status until 3 minutes
     sleep 60
+
+    CONN_IF_PID=$(ps | grep Device.X_RDK_Remote.Device.2.Status | grep -v grep | awk '{print $1}')
+
+    if [ -n "$CONN_IF_PID" ]; then
+        kill -9 $CONN_IF_PID
+    fi
+
     value=$(dmcli eRT getv Device.X_RDK_Remote.Device.2.Status | grep value: | awk -F: '{print $3}'| tr -d ' ') 
     if [ "$value" = "3" ]; then
         #IDM was restarted forcefully and connection got established. clear attempt

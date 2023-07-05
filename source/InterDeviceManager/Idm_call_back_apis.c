@@ -500,6 +500,7 @@ void start_discovery_thread(void)
             strncpy(discoveryConf.interface, pidmDmlInfo->stConnectionInfo.Interface,sizeof(discoveryConf.interface));
             discoveryConf.loss_detection_window = (pidmDmlInfo->stConnectionInfo.DetectionWindow /1000);
             discoveryConf.port = pidmDmlInfo->stConnectionInfo.Port;
+            pidmDmlInfo->stConnectionInfo.DiscoveryInProgress = TRUE;
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             pidmDmlInfo = NULL;
         }
@@ -518,7 +519,7 @@ void start_discovery_thread(void)
         if(pidmDmlInfo != NULL)
         {
             /* Reset Restart flag to false */
-            pidmDmlInfo->stConnectionInfo.Restart = FALSE;
+            pidmDmlInfo->stConnectionInfo.DiscoveryInProgress = FALSE;
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             pidmDmlInfo = NULL;
         }

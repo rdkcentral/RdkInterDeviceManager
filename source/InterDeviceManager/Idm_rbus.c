@@ -802,15 +802,52 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
     {
         rbusValue_t value;
         bool restart = false;
+        bool interface_status = FALSE;
+        char interface_name[64] = { 0 };
 
         value = rbusObject_GetValue(inParams, "Restart");
         restart = (bool)rbusValue_GetBoolean(value);
         if(restart)
         {
             CcspTraceInfo(("Inside %s:%d dest Restarting IDM \n",__FUNCTION__,__LINE__));
-            pidmDmlInfo->stConnectionInfo.Restart = TRUE;
-            IDM_Stop_Device_Discovery();
+            // call upnp restart only if current interface has IP and it is up
+            // Release the lock until initerface is up and allow other threads continue
+            strncpy(interface_name, pidmDmlInfo->stConnectionInfo.Interface, sizeof(interface_name) -1 );
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            interface_status = checkInterfaceStatus(interface_name);
+            if(interface_status == TRUE)
+            {
+                // take the lock and release for updating and restarting upnp 
+                CcspTraceInfo(("%s:%d Waiting for lock to restart upnp \n",__FUNCTION__,__LINE__));
+                pidmDmlInfo = IdmMgr_GetConfigData_locked();
+                if( pidmDmlInfo == NULL )
+                {
+                    return  ANSC_STATUS_FAILURE;
+                }
+               
+                // upnp restart should be initiated only when IDM is already in a start discovery state
+                if(pidmDmlInfo->stConnectionInfo.DiscoveryInProgress == TRUE)
+                {
+                    CcspTraceInfo(("%s:%d Restarting xupnp \n",__FUNCTION__,__LINE__));
+                    IDM_Stop_Device_Discovery();
+                }
+                // IDM is not in discovery state. Just set the new flag so that IDM will fetch new interface again
+                // and restart start discovery 
+                else
+                {
+                    pidmDmlInfo->stConnectionInfo.InterfaceChanged = TRUE;
+                }
+                IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+                return RBUS_ERROR_SUCCESS;
+            }
+            else
+            {
+                CcspTraceInfo(("%s:%d Interface does not have IP or not operational \n",__FUNCTION__,__LINE__));
+                CcspTraceInfo(("%s:%d Ignoring upnp restart \n",__FUNCTION__,__LINE__));
+                return RBUS_ERROR_SUCCESS;
+            }
         }
+        // if this is not a restart, release lock
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         return RBUS_ERROR_SUCCESS;
     }

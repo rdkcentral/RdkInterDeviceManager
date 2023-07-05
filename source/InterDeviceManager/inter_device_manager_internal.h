@@ -161,7 +161,8 @@ typedef  struct _IDM_CONNECTION_INFO
     char Capabilities[1024];
     char Interface[32];
     unsigned int Port;
-    bool Restart;
+    bool DiscoveryInProgress;
+    bool InterfaceChanged;
 }
 IDM_CONNECTION_INFO,  *PIDM_CONNECTION_INFO;
 
