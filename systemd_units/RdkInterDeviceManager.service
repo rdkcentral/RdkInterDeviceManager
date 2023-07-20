@@ -27,10 +27,10 @@ Type=forking
 Environment="Subsys=eRT."
 Environment="LOG4C_RCPATH=/etc"
 EnvironmentFile=/etc/device.properties
+EnvironmentFile=/etc/idm/ssl.conf
 WorkingDirectory=/usr/rdk/interdevicemanager
 ExecStartPre=/bin/sh -c '(/usr/ccsp/utopiaInitCheck.sh)'
-ExecStartPre=-/bin/sh -c '/bin/sh /etc/Xupnp/idm_certs.sh'
-ExecStart=/usr/bin/interdevicemanager -subsys eRT.
+ExecStart=/usr/bin/interdevicemanager ${IDM_CERT_FILE} ${IDM_KEY_FILE} ${IDM_CA_FILE} ${IDM_CA_DIR} -subsys eRT.
 ExecStop=/bin/sh -c 'echo "`date`: Stopping/Restarting InterDevice Manager" >> ${PROCESS_RESTART_LOG}'
 Restart=on-failure
 

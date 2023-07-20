@@ -37,6 +37,11 @@ cap_user appcaps;
 char                                        g_Subsystem[32]         = {0};
 extern char*                                pComponentName;
 
+char g_sslCert[128];
+char g_sslKey[128];
+char g_sslCA[128];
+char g_sslCaDir[128];
+
 extern ANSC_STATUS Idm_Init();
 
 #if defined(_ANSC_LINUX)
@@ -197,6 +202,38 @@ int main(int argc, char* argv[])
         else if ( strcmp(argv[idx], "-c") == 0 )
         {
             bRunAsDaemon = FALSE;
+        }
+        else if(idx == 1)
+        {
+            if (strlen(argv[idx]) > 0)
+            {
+                strncpy(g_sslCert, argv[idx], sizeof(g_sslCert) - 1);
+                CcspTraceInfo(("SSL Cert file :%s\n", g_sslCert));
+            }
+        }
+        else if(idx == 2)
+        {
+            if (strlen(argv[idx]) > 0)
+            {
+                strncpy(g_sslKey, argv[idx], sizeof(g_sslKey) - 1);
+                CcspTraceInfo(("SSL Key file :%s\n", g_sslKey));
+            }
+        }
+        else if(idx == 3)
+        {
+            if (strlen(argv[idx]) > 0)
+            {
+                strncpy(g_sslCA, argv[idx], sizeof(g_sslCA) - 1);
+                CcspTraceInfo(("SSL CA file :%s\n", g_sslCA));
+            }
+        }
+        else if(idx == 4)
+        {
+            if (strlen(argv[idx]) > 0)
+            {
+                strncpy(g_sslCaDir, argv[idx], sizeof(g_sslCaDir) - 1);
+                CcspTraceInfo(("SSL CA dir :%s\n", g_sslCaDir));
+            }
         }
     }
     pComponentName          = RDK_COMPONENT_NAME_INTER_DEVICE_MANAGER;

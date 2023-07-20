@@ -25,6 +25,11 @@
 #define SSL_CERTIFICATE "/tmp/idm_xpki_cert"
 #define SSL_KEY         "/tmp/idm_xpki_key"
 
+extern char g_sslCert[SSL_FILE_LEN];
+extern char g_sslKey[SSL_FILE_LEN];
+extern char g_sslCA[SSL_FILE_LEN];
+extern char g_sslCaDir[SSL_FILE_LEN];
+
 bool ssl_lib_init = false;
 bool TCP_server_started = false;
 
@@ -50,21 +55,29 @@ SSL_CTX* init_ctx(void)
 
 int load_certificate(SSL_CTX* ctx)
 {
-    if ( SSL_CTX_use_certificate_file(ctx, SSL_CERTIFICATE, SSL_FILETYPE_PEM) <= 0 )
+    if ( SSL_CTX_use_certificate_file(ctx, g_sslCert, SSL_FILETYPE_PEM) <= 0 )
     {
         CcspTraceError(("(%s:%d) Error in loading certificate\n", __FUNCTION__, __LINE__));
         return -1;
     }
-    if ( SSL_CTX_use_PrivateKey_file(ctx, SSL_KEY, SSL_FILETYPE_PEM) <= 0 )
+
+    CcspTraceInfo(("(%s:%d)SSL Certificate = %s\n", __FUNCTION__, __LINE__,g_sslCert));
+
+    if ( SSL_CTX_use_PrivateKey_file(ctx, g_sslKey, SSL_FILETYPE_PEM) <= 0 )
     {
         CcspTraceError(("(%s:%d) Error in loading private key file\n", __FUNCTION__, __LINE__));
         return -1;
     }
+
+    CcspTraceInfo(("(%s:%d)SSL Key = %s\n", __FUNCTION__, __LINE__,g_sslKey));
+
     if ( !SSL_CTX_check_private_key(ctx) )
     {
         CcspTraceError(("(%s:%d) Error in verifying privat key with certificate file\n", __FUNCTION__, __LINE__));
     }
+
     CcspTraceInfo(("(%s:%d)Certificate & private key loaded successfully\n", __FUNCTION__, __LINE__));
+
     return 0;
 }
 

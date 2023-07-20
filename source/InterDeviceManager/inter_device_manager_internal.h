@@ -55,6 +55,7 @@
 #define LOC_SIZE 128
 #define FT_STATUS_SIZE 24
 #define INTF_SIZE 32
+#define SSL_FILE_LEN 128
 typedef  struct
 _COMPONENT_COMMON_INTER_DEVICE_MANAGER
 {
@@ -95,6 +96,9 @@ typedef struct {
     uint  discovery_interval;
     uint  loss_detection_window;
     char base_mac[32];
+    char sslCert[SSL_FILE_LEN];
+    char sslKey[SSL_FILE_LEN];
+    char sslCA[SSL_FILE_LEN];
 } discovery_config_t;
 
 typedef struct {

@@ -32,6 +32,11 @@
 
 #define SYSEVENT_FIREWALL_RESTART "firewall-restart"
 
+extern char g_sslCert[SSL_FILE_LEN];
+extern char g_sslKey[SSL_FILE_LEN];
+extern char g_sslCA[SSL_FILE_LEN];
+extern char g_sslCaDir[SSL_FILE_LEN];
+
 typedef struct discovery_cb_threadargs
 {
     device_info_t device;
@@ -539,6 +544,10 @@ void start_discovery_thread(void)
         discovery_config_t discoveryConf;
 
         memset (&discoveryConf, 0, sizeof(discovery_config_t));
+
+        strncpy(discoveryConf.sslCert, g_sslCert, sizeof(discoveryConf.sslCert) - 1 );
+        strncpy(discoveryConf.sslKey, g_sslKey, sizeof(discoveryConf.sslKey) - 1 );
+        strncpy(discoveryConf.sslCA, g_sslCA, sizeof(discoveryConf.sslCA) - 1 );
 
         /* Update discovery_config deatils */
         PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
