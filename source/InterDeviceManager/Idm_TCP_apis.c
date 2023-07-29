@@ -16,7 +16,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+#include <net/if.h>
+#include <sys/ioctl.h>
 #include "Idm_TCP_apis.h"
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -33,6 +34,7 @@ typedef struct tcp_server_threadargs
 {
     callback_recv cb;
     int port;
+    char interface[INTF_SIZE];
 } TcpServerThreadArgs;
 
 SSL_CTX* init_ctx(void)
@@ -66,6 +68,60 @@ int load_certificate(SSL_CTX* ctx)
     return 0;
 }
 
+// This function will check if mac_address and ip_address of client is matching
+// with discovered list
+int verify_client(char *interface, char *ip_address)
+{
+    char mac_address[MAC_ADDR_SIZE] = { 0 };
+
+    if(!ip_address || !interface)
+    {
+        return -1;
+    }
+
+    if(getARPMac(interface, ip_address, mac_address) == -1)
+    {
+        return -1;
+    }
+
+    if(strlen(mac_address) == 0)
+    {
+        CcspTraceInfo(("%s %d Failed to get ARP MAC address\n", __FUNCTION__, __LINE__));
+        return -1;
+    }
+
+    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+
+    if( pidmDmlInfo == NULL )
+    {
+        return  -1;
+    }
+
+    IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
+
+    while(remoteDevice!=NULL)
+    {
+        // check if both mac_address and ip_address matches with discovered list
+        if(strncasecmp(remoteDevice->stRemoteDeviceInfo.ARPMac, mac_address ,MAC_ADDR_SIZE) == 0)
+        {
+            CcspTraceInfo(("%s %d Client mac address matches with discovered devices list\n", __FUNCTION__, __LINE__));
+            if(strncmp(remoteDevice->stRemoteDeviceInfo.IPv4, ip_address, strlen(remoteDevice->stRemoteDeviceInfo.IPv4) ) == 0)
+            {
+                CcspTraceInfo(("%s %d Client IP address matches with discovered devices list\n",__FUNCTION__, __LINE__));
+                IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+                return 1;
+            }
+            //ip does not matching.
+            break;
+        }
+        remoteDevice=remoteDevice->next;
+    }
+
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+
+    return 0;
+}
+
 void tcp_server_thread(void *arg)
 {
     struct sockaddr_in servaddr;
@@ -79,9 +135,35 @@ void tcp_server_thread(void *arg)
     payload_t buffer;
     SSL_CTX *ctx = NULL;
     SSL *ssl[MAX_TCP_CLIENTS] = {NULL};
+    int fd = -1;
+    struct ifreq ifr;
+    char interface[INTF_SIZE];
     TcpServerThreadArgs *ta = arg;
     int port_no = ta->port;
+    struct sockaddr_in client;
+    int addrlen = sizeof(client);
+    unsigned int counter = 0;
+    int verify_status = 0;
+
     callback_recv rcv_cb = ta->cb;
+    strncpy_s(interface, sizeof(interface), ta->interface, INTF_SIZE);
+
+    if (( fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+    {
+        CcspTraceInfo(("%s %d Socket creation failed : %s", __FUNCTION__, __LINE__, strerror(errno)));
+        return;
+    }
+
+    memset(&ifr, 0x00, sizeof(ifr));
+    strncpy(ifr.ifr_name, ta->interface, sizeof(ifr.ifr_name) - 1 );
+    ifr.ifr_addr.sa_family = AF_INET;
+    if (ioctl(fd, SIOCGIFADDR, &ifr) < 0)
+    {
+        CcspTraceInfo(("%s %d Failed to get ip %s \n", __FUNCTION__, __LINE__, strerror(errno)));
+        close(fd);
+        return;
+    }
+    close(fd);
 
     CcspTraceInfo(("%s %d -TCP server thread started\n", __FUNCTION__, __LINE__));
     pthread_detach(pthread_self());
@@ -124,7 +206,8 @@ void tcp_server_thread(void *arg)
     }
 #endif
     servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = INADDR_ANY;
+    // listen on configured interface IP address only
+    servaddr.sin_addr.s_addr = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr.s_addr;
     servaddr.sin_port = htons(port_no);
 
     rc = bind(master_sock_fd, (struct sockaddr *)&servaddr, sizeof(servaddr));
@@ -170,10 +253,40 @@ void tcp_server_thread(void *arg)
         select( max_fd + 1 , &rset , NULL , NULL , NULL);
         if(FD_ISSET(master_sock_fd, &rset))
         {
-            c_fd = accept(master_sock_fd, NULL, NULL);
+            memset((void*)&client, 0, sizeof(client));
+            c_fd = accept(master_sock_fd, (struct sockaddr *)&client, &addrlen);
             if(c_fd < 0){
                 perror("idm : AF_INET accept failed");
             }
+            
+            CcspTraceInfo(("%s %d client IP address %s \n", __FUNCTION__, __LINE__, inet_ntoa(client.sin_addr)));
+            // Check whether client is present in upnp discovered list
+            counter = 0;
+            while(1)
+            {
+                verify_status = verify_client(interface, inet_ntoa(client.sin_addr));
+                // exit if it returns errors(-1) or if it returns 1(found the client)
+                if(verify_status == 1 || verify_status == -1)
+                {
+                    break;
+                }
+                counter++;
+                if(counter >= 60)
+                {
+                    break;
+                }
+                CcspTraceInfo(("%s %d Waiting to be discoverd by discovery protocol... \n", __FUNCTION__, __LINE__));
+                sleep(1);
+            };
+
+            if(verify_status != 1)
+            {
+                CcspTraceInfo(("Failed to find client details. Rejecting client connection\n"));
+                close(c_fd);
+                continue;
+            }
+
+            CcspTraceInfo(("%s %d client mac and ip addresses matched sucessfully\n", __FUNCTION__, __LINE__));
             CcspTraceInfo(("New Client Connected Successfully with socket id  = %d\n", c_fd));
             //Save the new client FD in a vacant slot of client FD array
             for(i = 0; i< MAX_TCP_CLIENTS; i++)
@@ -260,7 +373,13 @@ int open_remote_connection(connection_config_t* connectionConf, int (*connection
     int client_sockfd;
     bool enc_status = false;
 
-    TcpServerThreadArgs ta = { rcv_message_cb,connectionConf->port};
+    TcpServerThreadArgs ta ;
+
+    memset (&ta,'\0',sizeof(TcpServerThreadArgs));
+    strncpy_s(ta.interface, sizeof(ta.interface), connectionConf->interface, INTF_SIZE);
+    ta.port = connectionConf->port;
+    ta.cb = rcv_message_cb;
+
     /* start tcp server */
     if(!TCP_server_started)
     {

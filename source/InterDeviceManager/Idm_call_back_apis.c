@@ -351,6 +351,23 @@ void discovery_cb_thread(void *arg)
 	    rc = strcpy_s(remoteDevice->stRemoteDeviceInfo.IPv6, sizeof(remoteDevice->stRemoteDeviceInfo.IPv6), Device->ipv6_addr);
             ERR_CHK(rc);
 
+            memset(remoteDevice->stRemoteDeviceInfo.ARPMac, 0 , sizeof(remoteDevice->stRemoteDeviceInfo.ARPMac));
+
+            if(getARPMac(pidmDmlInfo->stConnectionInfo.Interface, Device->ipv4_addr, remoteDevice->stRemoteDeviceInfo.ARPMac) == 1)
+            {
+                if(strlen(remoteDevice->stRemoteDeviceInfo.ARPMac) > 0 )
+                {
+                    CcspTraceInfo(("%s %d -ARP mac :%s \n", __FUNCTION__, __LINE__, remoteDevice->stRemoteDeviceInfo.ARPMac));
+                }
+                else
+                {
+                    CcspTraceInfo(("%s %d - Failed to get ARP mac \n", __FUNCTION__, __LINE__));
+                }
+            }
+            else
+            {
+                CcspTraceInfo(("%s %d - Failed to get ARP mac \n", __FUNCTION__, __LINE__));
+            }
             /* Create link */
             connection_config_t connectionConf;
             memset(&connectionConf, 0, sizeof(connection_config_t));
@@ -404,6 +421,26 @@ void discovery_cb_thread(void *arg)
         rc = strcpy_s(newNode->stRemoteDeviceInfo.IPv6, sizeof(newNode->stRemoteDeviceInfo.IPv6), Device->ipv6_addr);
 	ERR_CHK(rc);
 
+        // Remote device found. Store mac obtianed from ARP table
+        memset(newNode->stRemoteDeviceInfo.ARPMac, 0 , sizeof(newNode->stRemoteDeviceInfo.ARPMac));
+
+        if(getARPMac(pidmDmlInfo->stConnectionInfo.Interface, Device->ipv4_addr, newNode->stRemoteDeviceInfo.ARPMac) == 1 )
+        {
+
+            if(strlen(newNode->stRemoteDeviceInfo.ARPMac) > 0 )
+            {
+                CcspTraceInfo(("%s %d -ARP mac :%s \n", __FUNCTION__, __LINE__, newNode->stRemoteDeviceInfo.ARPMac));
+            }
+            else
+            {
+                CcspTraceInfo(("%s %d - Failed to get ARP mac \n", __FUNCTION__, __LINE__));
+            }
+        }
+        else
+        {
+            CcspTraceInfo(("%s %d - Failed to get ARP mac \n", __FUNCTION__, __LINE__));
+        }
+    
         newNode->stRemoteDeviceInfo.conn_info.conn = 0;
 
         if(addDevice(newNode) == ANSC_STATUS_SUCCESS)

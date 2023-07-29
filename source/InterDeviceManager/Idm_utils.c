@@ -27,7 +27,7 @@
 #include <ifaddrs.h>
 #include <sysevent/sysevent.h>
 #include <syscfg/syscfg.h>
-
+#include <net/if_arp.h>
 int sysevent_fd = -1;
 token_t sysevent_token;
 
@@ -514,3 +514,51 @@ bool checkInterfaceStatus(char *interface_name)
     return FALSE;
 }
 
+int getARPMac(char *interface, char *ip_address, char *mac_address)
+{
+
+    int sock = 0;
+    struct arpreq arpreq;
+    struct sockaddr_in *sin = NULL;
+    unsigned char *mac_data = NULL;
+
+    if(!ip_address || !interface || !mac_address)
+    {
+        return -1;
+    }
+
+    memset(&arpreq, 0, sizeof(arpreq));
+
+    sin = (struct sockaddr_in *) &arpreq.arp_pa;
+    sin->sin_family = AF_INET;
+    sin->sin_addr.s_addr = inet_addr(ip_address);
+    strncpy (arpreq.arp_dev, interface, sizeof(arpreq.arp_dev) - 1);
+    
+    if((sock = socket(AF_INET, SOCK_DGRAM, 0)) == -1) 
+    {
+        CcspTraceInfo(("%s %d ARP socket creation failed\n",  __FUNCTION__, __LINE__));
+        return -1;
+    }
+
+    // parse ARP cache to get MAC
+    if (ioctl(sock, SIOCGARP, &arpreq) < 0) 
+    {
+        CcspTraceInfo(("%s %d ARP IOCTL failed\n", __FUNCTION__, __LINE__));
+        close(sock);
+        return -1;
+    }
+
+    mac_data = (unsigned char *) &arpreq.arp_ha.sa_data[0];
+
+    if(mac_data)
+    {
+        snprintf(mac_address, MAC_ADDR_SIZE , "%02X:%02X:%02X:%02X:%02X:%02X", mac_data[0],mac_data[1], mac_data[2], mac_data[3], mac_data[4], mac_data[5]);
+    
+
+        CcspTraceInfo(("%s %d Mac address of client %s: %s\n", __FUNCTION__, __LINE__, ip_address, mac_address));
+    }
+
+    close(sock);
+
+    return 1;
+}
