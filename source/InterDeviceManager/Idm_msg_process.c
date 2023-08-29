@@ -414,14 +414,17 @@ char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
             ERR_CHK(rc);
             if((!ind) && (rc == EOK))
             {
+	        free(req);
                 return FT_INVALID_DST_PATH;
             }
             rc = strcmp_s(FT_TMP,strlen(FT_TMP),tok,&ind);
             ERR_CHK(rc);
             if((!ind) && (rc == EOK))
             {
+	        free(req);
                 return FT_INVALID_DST_PATH;
             }
+	    free(req);
             return FT_NOT_WRITABLE_PATH;
         }
         else{
@@ -430,6 +433,7 @@ char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
             {
                 fclose(fptr);
                 CcspTraceError(("malloc failed to allocate memory\n"));
+	        free(req);
                 return FT_ERROR;
             }
             while(length<total_bytes){
@@ -440,9 +444,8 @@ char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
                 else{
                     CcspTraceError(("%s:%d ssl session is null\n",__FUNCTION__,__LINE__));
                     fclose(fptr);
-                    if(buf){
-                        free(buf);
-                    }
+                    free(buf);
+	            free(req);
                     return FT_ERROR;
                 }
 #else
@@ -462,6 +465,7 @@ char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
             }
         }
         fclose(fptr);
+        free(req);
         return FT_SUCCESS;
     }
     else

@@ -324,8 +324,7 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
 {
     struct  ifreq ifr;
     int      fd = -1;
-    char wan_mac[18];// = {0};
-    memset(wan_mac,0,sizeof(wan_mac));
+    char wan_mac[18] = {0};
 
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
@@ -377,6 +376,7 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
             {
                 pidmDmlInfo->stConnectionInfo.InterfaceChanged = FALSE;
                 IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+	        close(fd);
                 return ANSC_STATUS_DO_IT_AGAIN;
             }
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
@@ -403,6 +403,7 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
             {
                 pidmDmlInfo->stConnectionInfo.InterfaceChanged = FALSE;
                 IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+	        close(fd);
                 return ANSC_STATUS_DO_IT_AGAIN;
             }
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
@@ -438,7 +439,6 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
         snprintf(pidmDmlInfo->stConnectionInfo.HelloIPv4SubnetList, sizeof(pidmDmlInfo->stConnectionInfo.HelloIPv4SubnetList), "%s/%u", inet_ntoa(netMask), cidrMask(((struct sockaddr_in *)&ifr.ifr_netmask)->sin_addr.s_addr));
         CcspTraceInfo(("[%s: %d] HelloIPv4SubnetList %s \n", __FUNCTION__, __LINE__,pidmDmlInfo->stConnectionInfo.HelloIPv4SubnetList));
 
-        close(fd);
         /* get Ipv6 address */
         struct ifaddrs *ifap, *ifa;
 
@@ -462,6 +462,7 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
         CcspTraceInfo(("LocalDevice is NULL in %s:%d\n", __FUNCTION__, __LINE__));
     }
 
+    close(fd);
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return ANSC_STATUS_SUCCESS;
 }

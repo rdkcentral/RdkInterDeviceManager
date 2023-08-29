@@ -203,7 +203,7 @@ int connection_cb(device_info_t* Device, connection_info_t* conn_info, uint encr
         IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
         while(remoteDevice!=NULL)
         {
-	    if(strcmp(remoteDevice->stRemoteDeviceInfo.MAC, Device->mac_addr) == 0)
+            if(strcmp(remoteDevice->stRemoteDeviceInfo.MAC, Device->mac_addr) == 0)
             {
 
                 break;

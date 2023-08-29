@@ -200,8 +200,8 @@ void tcp_server_thread(void *arg)
     }
     if (load_certificate(ctx) == -1) {
         CcspTraceError(("(%s:%d) Can't use certificate now!!\n", __FUNCTION__, __LINE__));
-	free(ctx);
-	close(master_sock_fd);
+        SSL_CTX_free(ctx);
+        close(master_sock_fd);
         return;
     }
 #endif
@@ -215,8 +215,10 @@ void tcp_server_thread(void *arg)
     if(rc < 0)
     {
         CcspTraceInfo(("\nIDM Server socket bind failed\n"));
-	free(ctx);
-	close(master_sock_fd);
+#ifndef IDM_DEBUG
+        SSL_CTX_free(ctx);
+#endif
+        close(master_sock_fd);
         return;
     }
 
@@ -225,8 +227,10 @@ void tcp_server_thread(void *arg)
     if(rc < 0)
     {
         CcspTraceInfo(("\nIDM server socket listen failed\n"));
-	free(ctx);
-	close(master_sock_fd);
+#ifndef IDM_DEBUG
+        SSL_CTX_free(ctx);
+#endif
+        close(master_sock_fd);
         return;
     }
 
@@ -549,6 +553,7 @@ int getFile_to_remote(connection_info_t* conn_info,void *payload)
             {
                 if(1 != fread (buffer, length, 1, fptr)) {
                     CcspTraceError(("fread failed \n"));
+                    free(buffer);
                     fclose(fptr);
                     return ANSC_STATUS_FAILURE;
                 }
@@ -582,6 +587,7 @@ int getFile_to_remote(connection_info_t* conn_info,void *payload)
         {
             if(1 != fread (buffer,length, 1,fptr)) {
                  CcspTraceError(("fread failed \n"));
+                 free(buffer);
                  fclose(fptr);
                  return ANSC_STATUS_FAILURE;
             }
@@ -644,7 +650,7 @@ int sendFile_to_remote(connection_info_t* conn_info,void *payload,char* output_l
     if(pidmDmlInfo == NULL)
     {
         CcspTraceError(("(%s:%d) idmDmlInfo is null\n",__FUNCTION__, __LINE__));
-	fclose(fptr);
+        fclose(fptr);
         return FT_ERROR;
     }
     if(length > (pidmDmlInfo->stRemoteInfo.max_file_size))
@@ -660,18 +666,18 @@ int sendFile_to_remote(connection_info_t* conn_info,void *payload,char* output_l
     if(rc != EOK)
     {
         ERR_CHK(rc);
-	fclose(fptr);
+        fclose(fptr);
         return ANSC_STATUS_FAILURE;
     }
 
-    buffer =(char*)malloc (length);
+    buffer = (char*)calloc (1, length);
     if(!buffer)
     {
         CcspTraceError(("memory is not allocated\n"));
         fclose(fptr);
         return FT_ERROR;
     }
-    memset(buffer,0,length);
+
     if(1 != fread (buffer, length, 1, fptr)) {
         CcspTraceError(("fread failed \n"));
         free(buffer);
@@ -679,12 +685,12 @@ int sendFile_to_remote(connection_info_t* conn_info,void *payload,char* output_l
         return ANSC_STATUS_FAILURE;
     }
     CcspTraceDebug(("%s:%d output file name = %s length=%zu length in Data=%d\n",__FUNCTION__,__LINE__,Data->param_name,length,Data->file_length));
+    fclose( fptr );
 #ifndef IDM_DEBUG
     if (conn_info->enc.ssl == NULL)
     {
         CcspTraceError(("%s:%d ssl session is null\n",__FUNCTION__,__LINE__));
         free(buffer);
-        fclose(fptr);
         return FT_ERROR;
     }
     if ((bytes = SSL_write(conn_info->enc.ssl, Data, sizeof(payload_t))) > 0)
@@ -705,7 +711,6 @@ int sendFile_to_remote(connection_info_t* conn_info,void *payload,char* output_l
     {
         CcspTraceError(("%s:%d conn value is null\n",__FUNCTION__,__LINE__));
         free(buffer);
-        fclose(fptr);
         return FT_ERROR;
     }
     if(send(conn_info->conn, Data,sizeof(payload_t), 0) > 0)
@@ -719,12 +724,10 @@ int sendFile_to_remote(connection_info_t* conn_info,void *payload,char* output_l
     {
         CcspTraceError(("%s:%d length and file data is not transformed\n",__FUNCTION__,__LINE__));
         free(buffer);
-        fclose(fptr);
         return FT_ERROR;
     }
 #endif
     free(buffer);
-    fclose(fptr);
     return FT_SUCCESS;
 }
 
