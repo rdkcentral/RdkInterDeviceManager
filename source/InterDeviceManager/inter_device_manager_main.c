@@ -230,7 +230,7 @@ int main(int argc, char* argv[])
 
     if(ANSC_STATUS_FAILURE == Idm_Init())
     {
-        fprintf(stderr, "IDM Initiliasation Failed: %s\n", Cdm_StrError(err));
+        CcspTraceError(("%s %d IDM Initiliasation Failed \n", __FUNCTION__,__LINE__));
     }
 
     if ( bRunAsDaemon )

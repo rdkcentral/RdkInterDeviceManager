@@ -187,7 +187,7 @@ int connection_cb(device_info_t* Device, connection_info_t* conn_info, uint encr
     //Send request to get Capabilities
     idm_send_msg_Params_t param;
     memset(&param, 0, sizeof(param));
-    strncpy(param.Mac_dest, Device->mac_addr,MAC_ADDR_SIZE-1);
+    strncpy(param.Mac_dest, Device->mac_addr, sizeof(param.Mac_dest)-1);
     param.timeout = DEFAULT_IDM_REQUEST_TIMEOUT;
     param.operation = IDM_REQUEST;
     param.resCb = NULL;
@@ -462,7 +462,7 @@ void discovery_cb_thread(void *arg)
         /* Create link */
         connection_config_t connectionConf;
         memset(&connectionConf, 0, sizeof(connection_config_t));
-        strncpy(connectionConf.interface, pidmDmlInfo->stConnectionInfo.Interface,sizeof(connectionConf.interface));
+        strncpy(connectionConf.interface, pidmDmlInfo->stConnectionInfo.Interface,sizeof(connectionConf.interface)-1);
         connectionConf.port = pidmDmlInfo->stRemoteInfo.Port;
         connectionConf.device = Device;
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
@@ -539,7 +539,6 @@ void start_discovery_thread(void)
             discoveryConf.port = pidmDmlInfo->stConnectionInfo.Port;
             pidmDmlInfo->stConnectionInfo.DiscoveryInProgress = TRUE;
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
-            pidmDmlInfo = NULL;
         }
         platform_hal_GetBaseMacAddress(discoveryConf.base_mac);
 

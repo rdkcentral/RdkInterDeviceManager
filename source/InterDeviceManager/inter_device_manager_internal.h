@@ -54,7 +54,7 @@
 #define IPv6_ADDR_SIZE 128
 #define LOC_SIZE 128
 #define FT_STATUS_SIZE 24
-#define INTF_SIZE 10
+#define INTF_SIZE 32
 typedef  struct
 _COMPONENT_COMMON_INTER_DEVICE_MANAGER
 {

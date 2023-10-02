@@ -952,7 +952,6 @@ void IDM_Incoming_req_handler_thread()
                 memcpy(payload.param_value, &(pidmDmlInfo->stRemoteInfo.pstDeviceLink->stRemoteDeviceInfo),sizeof(IDM_REMOTE_DEVICE_INFO));
                 payload.status =  ANSC_STATUS_SUCCESS;
                 IdmMgrDml_GetConfigData_release(pidmDmlInfo);
-                pidmDmlInfo = NULL;
 
             }else if(ReqEntry->operation == GFT)
             {
@@ -1038,11 +1037,12 @@ void IDM_Broadcast_LocalDeviceInfo()
     memset(&payload, 0, sizeof(payload_t));
 
     pidmDmlInfo = IdmMgr_GetConfigData_locked();
-    IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
-    if(!pidmDmlInfo)
+    if( pidmDmlInfo == NULL )
     {
         payload.status =  ANSC_STATUS_FAILURE;
+        return;
     }
+    IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
     /*get local deivce struct */
     memcpy(payload.param_value, &(pidmDmlInfo->stRemoteInfo.pstDeviceLink->stRemoteDeviceInfo),sizeof(IDM_REMOTE_DEVICE_INFO));
     payload.status =  ANSC_STATUS_SUCCESS;

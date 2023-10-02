@@ -324,7 +324,7 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
 {
     struct  ifreq ifr;
     int      fd = -1;
-    char wan_mac[18] = {0};
+    char wan_mac[32] = {0};
 
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
@@ -380,7 +380,6 @@ ANSC_STATUS IDM_UpdateLocalDeviceData()
                 return ANSC_STATUS_DO_IT_AGAIN;
             }
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
-            pidmDmlInfo =NULL;
         }
         sleep(2);
     }

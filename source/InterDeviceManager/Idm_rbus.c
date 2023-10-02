@@ -603,7 +603,7 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
 
         indexNode = getRmDeviceNode(pidmDmlInfo, 1);
 
-        if(!indexNode || len < 0)
+        if(!indexNode || len == 0)
         {
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             return RBUS_ERROR_BUS_ERROR;
@@ -628,7 +628,8 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
                     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
                     return RBUS_ERROR_SUCCESS;
                 }
-                strcpy(capPos, capPos + (strlen(token) + 1));
+                rc = strcpy_s(capPos, strlen(capPos), capPos + (strlen(token) + 1));
+	        ERR_CHK(rc);
             }
             token = strtok(NULL, ",");
         }
