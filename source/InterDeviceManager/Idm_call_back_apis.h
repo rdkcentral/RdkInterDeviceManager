@@ -27,4 +27,5 @@ ANSC_STATUS IDM_Stop_Device_Discovery();
 int discovery_cb(device_info_t* Device, uint discovery_status, uint authentication_status );
 int connection_cb(device_info_t* Device, connection_info_t* conn_info, uint encryption_status);
 int rcv_message_cb( connection_info_t* conn_info, void *payload);
+int check_device_status();
 #endif

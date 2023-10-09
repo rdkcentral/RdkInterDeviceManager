@@ -26,11 +26,21 @@
 #include "Idm_call_back_apis.h"
 #include "Idm_TCP_apis.h"
 #include "Idm_msg_process.h"
+#include "Idm_data.h"
 
 #define DM_REMOTE_DEVICE_TABLE "Device.X_RDK_Remote.Device"
 #define DEFAULT_IDM_REQUEST_TIMEOUT 10
 
 #define SYSEVENT_FIREWALL_RESTART "firewall-restart"
+
+pthread_mutex_t remoteDeviceStatus_mutex  = PTHREAD_MUTEX_INITIALIZER;
+
+typedef enum {
+    REMOTE_DEVICE_NOT_DISCOVERED = 0,
+    REMOTE_DEVICE_DISCOVERED = 1
+} remote_discovery_status_t;
+
+unsigned int remote_discovery_status = REMOTE_DEVICE_NOT_DISCOVERED;
 
 extern char g_sslCert[SSL_FILE_LEN];
 extern char g_sslKey[SSL_FILE_LEN];
@@ -242,11 +252,138 @@ int connection_cb(device_info_t* Device, connection_info_t* conn_info, uint encr
     
 }
 
+void xupnp_rediscover_thread(void *arg)
+{
+    pthread_detach(pthread_self());
 
+    int status = 0;
+    char param_value[256];
+    int retPsmGet = CCSP_SUCCESS;
+
+    while(1)
+    {
+        int ret = 0;
+        sleep(10);
+        pthread_mutex_lock(&remoteDeviceStatus_mutex);
+        status = remote_discovery_status;
+        pthread_mutex_unlock(&remoteDeviceStatus_mutex);
+        if(status == REMOTE_DEVICE_NOT_DISCOVERED)
+        {
+            retPsmGet = IDM_RdkBus_GetParamValuesFromDB(PSM_BROADCAST_INTERFACE_NAME,param_value,sizeof(param_value));
+            if (retPsmGet == CCSP_SUCCESS)
+            {
+                CcspTraceInfo(("%s %d - Remote device not discovered with interface %s \n", __FUNCTION__, __LINE__,param_value));
+                if(strncmp(param_value,"br-home",strlen("br-home")) == 0)
+                {
+                    Idm_UpdateMeshConnectionValue();
+                    ret = check_device_status();
+                    if(ret == 1) {
+                        CcspTraceInfo(("%s %d - Mesh Connected. Restarting upnp and stopping xupnp_rediscover_thread\n", __FUNCTION__, __LINE__));
+                        IDM_Stop_Device_Discovery();
+                        break;
+                    }
+                    else {
+                        CcspTraceInfo(("%s %d - Mesh not Connected. Skipping upnp restart\n", __FUNCTION__, __LINE__));
+                    }
+                }
+                else
+                {
+                    CcspTraceInfo(("%s %d - Stopping xupnp_rediscover_thread\n", __FUNCTION__, __LINE__));
+                    break;
+                }
+            }
+        }
+        else
+        {
+            CcspTraceInfo(("%s %d - Remote device discovered. Stopping xupnp_rediscover_thread\n", __FUNCTION__, __LINE__));
+            break;
+        }
+    }
+    return;
+}
+
+int check_device_status()
+{
+    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+    if( pidmDmlInfo == NULL )
+    {
+        return  ANSC_STATUS_FAILURE;
+    }
+
+    if(pidmDmlInfo->stConnectionInfo.MeshConnectionStatus == wifi_connection_status_connected)
+    {
+        CcspTraceInfo(("%s %d - Mesh reconnected status %d \n", __FUNCTION__, __LINE__,pidmDmlInfo->stConnectionInfo.MeshConnectionStatus));
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+        return 1;
+    }
+    CcspTraceInfo(("%s %d - Mesh connection down status %d \n", __FUNCTION__, __LINE__,pidmDmlInfo->stConnectionInfo.MeshConnectionStatus));
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+    return 0;
+}
 int discovery_cb(device_info_t* Device, uint discovery_status, uint authentication_status )
 {
-
     CcspTraceInfo(("%s %d -  \n", __FUNCTION__, __LINE__));
+    CcspTraceInfo(("IPv4=%s IPv6=%s MAC=%s discovery_status %d authentication_status %d \n",Device->ipv4_addr,Device->ipv6_addr,Device->mac_addr,discovery_status,authentication_status));
+
+    int check_status = 0;
+    if(discovery_status == 0)
+    {
+        PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+        if( pidmDmlInfo == NULL )
+        {
+            return  -1;
+        }
+
+        IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
+        while(remoteDevice!=NULL)
+        {
+            if(strcasecmp(remoteDevice->stRemoteDeviceInfo.MAC, Device->mac_addr) == 0)
+            {
+                if(remoteDevice->stRemoteDeviceInfo.Status == DEVICE_CONNECTED)
+                {
+                    check_status = 1;
+                }
+                break;
+            }
+            remoteDevice=remoteDevice->next;
+        }
+        IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+    }
+    else
+    {
+        pthread_mutex_lock(&remoteDeviceStatus_mutex);
+        remote_discovery_status = REMOTE_DEVICE_DISCOVERED;
+        pthread_mutex_unlock(&remoteDeviceStatus_mutex);
+        CcspTraceInfo(("%s %d - Setting discovery status\n", __FUNCTION__, __LINE__));
+    }
+
+    if(check_status == 1)
+    {
+        int ret = 0;
+        CcspTraceInfo(("%s %d - Check device availability after 5 seconds \n", __FUNCTION__, __LINE__));
+        /* After upnp timeout we are allowing 5 secs to see if the timeout was due to short mesh disconnect/reconnects
+         * If mesh is reconnected after 5 secs, avoiding GFO */
+        sleep(5);
+        Idm_UpdateMeshConnectionValue();
+        ret = check_device_status();
+        if(ret == 1)
+        {
+            CcspTraceInfo(("%s %d - Short mesh disconnection. Restart upnp and returning from discovery_cb \n", __FUNCTION__, __LINE__));
+
+            PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+            if(pidmDmlInfo != NULL)
+            {
+                if(pidmDmlInfo->stConnectionInfo.DiscoveryInProgress == TRUE)
+                {
+                    IDM_Stop_Device_Discovery();
+                }
+                IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            }
+            return 0;
+        }
+
+        CcspTraceInfo(("%s %d: Device is still not available after 5 secs, proceeding to GFO  \n", __FUNCTION__, __LINE__));
+    }
 
     if(Device == NULL)
     {
@@ -265,12 +402,17 @@ int discovery_cb(device_info_t* Device, uint discovery_status, uint authenticati
     {
         return  -1;
     }
-    CcspTraceInfo(("IPv4=%s IPv6=%s MAC=%s\n",Device->ipv4_addr,Device->ipv6_addr,Device->mac_addr));
 
     if(strncasecmp(Device->mac_addr, pidmDmlInfo->stRemoteInfo.pstDeviceLink->stRemoteDeviceInfo.MAC, MAC_ADDR_SIZE )==0)
     {
-        CcspTraceInfo(("%s %d -detected local device, don't add to remote device list\n", __FUNCTION__, __LINE__));
+        CcspTraceInfo(("%s %d -detected local device, don't add to remote device list, starting xupnp_rediscover_thread\n", __FUNCTION__, __LINE__));
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+        pthread_t rediscover_threadID;
+        pthread_create(&rediscover_threadID, NULL, &xupnp_rediscover_thread, NULL);
+        pthread_mutex_lock(&remoteDeviceStatus_mutex);
+        remote_discovery_status = REMOTE_DEVICE_NOT_DISCOVERED;
+        pthread_mutex_unlock(&remoteDeviceStatus_mutex);
+        CcspTraceInfo(("%s %d - Resetting discovery status\n", __FUNCTION__, __LINE__));
         return 0;
     }
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
@@ -363,9 +505,9 @@ void discovery_cb_thread(void *arg)
             else if(discovery_status)
                 remoteDevice->stRemoteDeviceInfo.Status = DEVICE_DETECTED;
 
-	    rc = strcpy_s(remoteDevice->stRemoteDeviceInfo.IPv4, sizeof(remoteDevice->stRemoteDeviceInfo.IPv4), Device->ipv4_addr);
+            rc = strcpy_s(remoteDevice->stRemoteDeviceInfo.IPv4, sizeof(remoteDevice->stRemoteDeviceInfo.IPv4), Device->ipv4_addr);
             ERR_CHK(rc);
-	    rc = strcpy_s(remoteDevice->stRemoteDeviceInfo.IPv6, sizeof(remoteDevice->stRemoteDeviceInfo.IPv6), Device->ipv6_addr);
+            rc = strcpy_s(remoteDevice->stRemoteDeviceInfo.IPv6, sizeof(remoteDevice->stRemoteDeviceInfo.IPv6), Device->ipv6_addr);
             ERR_CHK(rc);
 
             memset(remoteDevice->stRemoteDeviceInfo.ARPMac, 0 , sizeof(remoteDevice->stRemoteDeviceInfo.ARPMac));

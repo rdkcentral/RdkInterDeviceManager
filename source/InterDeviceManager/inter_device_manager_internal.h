@@ -158,6 +158,14 @@ typedef  struct _IDM_REMOTE_INFO
 }
 IDM_REMOTE_INFO,  *PIDM_REMOTE_INFO;
 
+/* connection status of STA */
+typedef enum {
+    wifi_connection_status_disabled = 0,
+    wifi_connection_status_disconnected = 1000000,
+    wifi_connection_status_connected = 2000000,
+    wifi_connection_status_ap_not_found = 3000000
+} wifi_connection_status_t;
+
 typedef  struct _IDM_CONNECTION_INFO
 {
     unsigned int HelloInterval;
@@ -169,6 +177,7 @@ typedef  struct _IDM_CONNECTION_INFO
     unsigned int Port;
     bool DiscoveryInProgress;
     bool InterfaceChanged;
+    wifi_connection_status_t MeshConnectionStatus;
 }
 IDM_CONNECTION_INFO,  *PIDM_CONNECTION_INFO;
 

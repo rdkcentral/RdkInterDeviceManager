@@ -58,6 +58,10 @@
 #define DM_REMOTE_DEVICE_FT_STATUS "Device.X_RDK_Remote.FileTransferStatus()"
 #define RM_PORT "Device.X_RDK_Remote.Port"
 #define IDM_DISCOVERY_RESTART "Device.X_RDK_Connection.Restart()"
+#define WIFI_STA_STATUS_NUM_OF_BYTES 4
+#define WIFI_STA_PARAM_NAME "Device.WiFi.STA.%d.Connection.Status"
+#define WIFI_RADIO_COUNT_PARAM_NAME "Device.WiFi.RadioNumberOfEntries"
+#define MESH_ETHBACKHAUL_LINKSTATUS "Device.X_RDK_MeshAgent.EthernetBhaulUplink.Status"
 
 rbusHandle_t        rbusHandle;
 char                idmComponentName[32] = "IDM_RBUS";
@@ -1085,3 +1089,97 @@ BOOL Idm_Rbus_discover_components(char const *pModuleList)
 }
 
 #endif
+unsigned int GetStaStatusFromString(char *pStr)
+{
+    char sta_status[12] = {0};
+    if (!pStr)
+        return 0;
+
+    // pStr will have value in this format "020000005A963040CE0C"
+    // parse only first 8 character from pStr
+    if (strlen(pStr) >= (WIFI_STA_STATUS_NUM_OF_BYTES * 2))
+    {
+        if(sscanf(pStr,"%08c",sta_status) > 0) {
+            return atoi(sta_status);
+        }
+    }
+    return 0;
+}
+
+int Idm_UpdateMeshConnectionValue()
+{
+    int rc = RBUS_ERROR_BUS_ERROR;
+    char param_name[128] = {0};
+    rbusValue_t value;
+    int noOfRadios;
+    char* newValue = NULL;
+    unsigned int staConnValue = 0;
+    wifi_connection_status_t conn_status = wifi_connection_status_disabled;
+
+    snprintf(param_name,sizeof(param_name),"%s",MESH_ETHBACKHAUL_LINKSTATUS);
+    if((rc = rbus_get(rbusHandle, param_name, &value)) == RBUS_ERROR_SUCCESS)
+    {
+        if(rbusValue_GetBoolean(value))
+        {
+            conn_status = wifi_connection_status_connected;
+        }
+        else
+        {
+            memset(param_name,0,sizeof(param_name));
+            snprintf(param_name,sizeof(param_name),"%s",WIFI_RADIO_COUNT_PARAM_NAME);
+            if((rc = rbus_get(rbusHandle, param_name, &value)) == RBUS_ERROR_SUCCESS)
+            {
+                newValue = rbusValue_ToString(value, NULL, 0);
+                if(newValue == NULL)
+                {
+                    CcspTraceInfo(("%s : rbusValue_ToString returned NULL \n", __FUNCTION__));
+                    return 0;
+                }
+                noOfRadios = atoi(newValue);
+                free(newValue);
+                for(int index=1;index<=noOfRadios;index++)
+                {
+                    memset(param_name,0,sizeof(param_name));
+                    snprintf(param_name,sizeof(param_name),WIFI_STA_PARAM_NAME,index);
+                    if((rc = rbus_get(rbusHandle, param_name, &value)) == RBUS_ERROR_SUCCESS)
+                    {
+                        newValue = rbusValue_ToString(value, NULL, 0);
+                        if(newValue == NULL)
+                        {
+                            CcspTraceInfo(("%s : rbusValue_ToString returned NULL \n", __FUNCTION__));
+                            return 0;
+                        }
+                        staConnValue = GetStaStatusFromString(newValue);
+                        free(newValue);
+                        if(staConnValue == wifi_connection_status_connected)
+                        {
+                            conn_status = wifi_connection_status_connected;
+                            break;
+                        }
+                    }
+                    else {
+                        CcspTraceInfo(("%s : rbus_get failed for %s with error code %d \n", __FUNCTION__, param_name, rc));
+                    }
+                }
+            }
+            else
+            {
+                CcspTraceInfo(("%s : rbus_get failed for %s with error code %d \n", __FUNCTION__, param_name, rc));
+            }
+        }
+    }
+    else
+    {
+        CcspTraceInfo(("%s : rbus_get failed for %s with error code %d \n", __FUNCTION__, param_name, rc));
+    }
+
+    PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+    if( pidmDmlInfo == NULL )
+    {
+        return  ANSC_STATUS_FAILURE;
+    }
+    CcspTraceInfo(("%s : MeshConnectionStatus %d \n", __FUNCTION__, conn_status));
+    pidmDmlInfo->stConnectionInfo.MeshConnectionStatus = conn_status;
+    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+    return 0;
+}
