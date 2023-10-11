@@ -948,21 +948,34 @@ rbusError_t X_RDK_Connection_SetHandler(rbusHandle_t handle, rbusProperty_t prop
     }
     if(strcmp(name, "Device.X_RDK_Connection.Interface") == 0)
     {
-	if (value) {
+        if (value) 
+        {
             char *InterfaceName = rbusValue_GetString(value, NULL);
-	    if (InterfaceName) {
-               CcspTraceInfo(("%s %d - InterfaceName %s strlen %d\n", __FUNCTION__, __LINE__, InterfaceName, strlen(InterfaceName)));
-               if (type == RBUS_STRING) {
-                   strcpy_s(pidmDmlInfo->stConnectionInfo.Interface, sizeof(pidmDmlInfo->stConnectionInfo.Interface), InterfaceName);
-	       } else { 
-                   IdmMgrDml_GetConfigData_release(pidmDmlInfo);
-                   return RBUS_ERROR_INVALID_INPUT;
-	       }
-            } else {
+            if((InterfaceName == NULL) || (type != RBUS_STRING))
+            {
+                IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+                CcspTraceInfo(("%s %d - Invalid interface name \n", __FUNCTION__, __LINE__));
+                return RBUS_ERROR_INVALID_INPUT;
+            }
+
+            if(strlen(InterfaceName) > 0)
+            {
+                strncpy(pidmDmlInfo->stConnectionInfo.Interface, InterfaceName, sizeof(pidmDmlInfo->stConnectionInfo.Interface) - 1);
+                CcspTraceInfo(("%s %d - InterfaceName set in DML: %s\n", __FUNCTION__, __LINE__, pidmDmlInfo->stConnectionInfo.Interface));
+
+            }
+            else { 
+                CcspTraceInfo(("%s %d - Interface name is empty string\n", __FUNCTION__, __LINE__));
                 IdmMgrDml_GetConfigData_release(pidmDmlInfo);
                 return RBUS_ERROR_INVALID_INPUT;
-	    }
-	}
+            }
+        }
+        else
+        {
+            IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+            CcspTraceInfo(("%s %d - value is NULL for interface name \n", __FUNCTION__, __LINE__));
+            return RBUS_ERROR_INVALID_INPUT;
+        }
     }
     if(strcmp(name, "Device.X_RDK_Connection.Port") == 0)
     {
