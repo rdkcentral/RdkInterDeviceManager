@@ -562,3 +562,28 @@ int getARPMac(char *interface, char *ip_address, char *mac_address)
 
     return 1;
 }
+
+bool checkMacAddr(const char *mac)
+{
+    uint32_t bytes[6] = { 0 };
+
+    if(mac == NULL)
+    {
+        CcspTraceInfo(("%s %d Mac address is NULL\n", __FUNCTION__, __LINE__));
+        return FALSE;
+    }
+
+    if((strlen(mac) <= 0) || (strlen(mac) != 17)) 
+    {
+        CcspTraceInfo(("%s %d Mac address is empty or not in valid format\n", __FUNCTION__, __LINE__));
+        return FALSE;
+    }
+
+    return (6 == sscanf(mac, "%02X:%02X:%02X:%02X:%02X:%02X"
+            , &bytes[5]
+            , &bytes[4]
+            , &bytes[3]
+            , &bytes[2]
+            , &bytes[1]
+            , &bytes[0]));
+}

@@ -55,4 +55,5 @@ ANSC_STATUS IDM_UpdateLocalDeviceData();
 ANSC_STATUS IDM_SyseventInit();
 void IDM_SyseventClose();
 int IsFileExists(char *file_name);
+bool checkMacAddr(const char *mac);
 #endif

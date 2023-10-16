@@ -241,8 +241,19 @@ int connection_cb(device_info_t* Device, connection_info_t* conn_info, uint encr
 int discovery_cb(device_info_t* Device, uint discovery_status, uint authentication_status )
 {
 
-
     CcspTraceInfo(("%s %d -  \n", __FUNCTION__, __LINE__));
+
+    if(Device == NULL)
+    {
+        CcspTraceInfo(("%s %d -Device structre is NULL\n", __FUNCTION__, __LINE__));
+        return 0;
+    }
+
+    if(checkMacAddr(Device->mac_addr) == FALSE)
+    {
+        CcspTraceInfo(("%s %d -Discovered device MAC address is not in proper format\n", __FUNCTION__, __LINE__));
+        return 0;
+    }
 
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
@@ -250,6 +261,7 @@ int discovery_cb(device_info_t* Device, uint discovery_status, uint authenticati
         return  -1;
     }
     CcspTraceInfo(("IPv4=%s IPv6=%s MAC=%s\n",Device->ipv4_addr,Device->ipv6_addr,Device->mac_addr));
+
     if(strncasecmp(Device->mac_addr, pidmDmlInfo->stRemoteInfo.pstDeviceLink->stRemoteDeviceInfo.MAC, MAC_ADDR_SIZE )==0)
     {
         CcspTraceInfo(("%s %d -detected local device, don't add to remote device list\n", __FUNCTION__, __LINE__));
