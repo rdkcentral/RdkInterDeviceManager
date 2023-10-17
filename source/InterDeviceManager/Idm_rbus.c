@@ -597,12 +597,14 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
         const char *out = NULL;
         char *capPos = NULL;
         uint32_t len = 0;
+        uint32_t source_len = 0;
+        char *source = NULL;
 
         rbusValue_t value = rbusObject_GetValue(inParams, NULL );
         out = rbusValue_GetString(value, &len);
 
         indexNode = getRmDeviceNode(pidmDmlInfo, 1);
-
+        
         if(!indexNode || len == 0)
         {
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
@@ -628,8 +630,16 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
                     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
                     return RBUS_ERROR_SUCCESS;
                 }
-                rc = strcpy_s(capPos, strlen(capPos), capPos + (strlen(token) + 1));
-	        ERR_CHK(rc);
+                // Copy remaining strings excluding token and comma
+                source = capPos + (strlen(token) + 1);
+                if(source)
+                {
+                    source_len = strlen(capPos + (strlen(token) + 1));
+                    // To copy data between overlapped memory with size, use memmove
+                    // since source is overallped within destination, source_len is always less than dest
+                    memmove(capPos, source, source_len);
+                    capPos[source_len] = '\0';
+                }
             }
             token = strtok(NULL, ",");
         }
