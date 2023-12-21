@@ -83,11 +83,11 @@ int load_certificate(SSL_CTX* ctx)
 
 // This function will check if mac_address and ip_address of client is matching
 // with discovered list
-int verify_client(char *interface, char *ip_address)
+int verify_client(char *interface, char *ip_address, unsigned int *sock_index)
 {
     char mac_address[MAC_ADDR_SIZE] = { 0 };
 
-    if(!ip_address || !interface)
+    if(!ip_address || !interface || !sock_index)
     {
         return -1;
     }
@@ -121,6 +121,9 @@ int verify_client(char *interface, char *ip_address)
             if(strncmp(remoteDevice->stRemoteDeviceInfo.IPv4, ip_address, strlen(remoteDevice->stRemoteDeviceInfo.IPv4) ) == 0)
             {
                 CcspTraceInfo(("%s %d Client IP address matches with discovered devices list\n",__FUNCTION__, __LINE__));
+                /*xupnp discovery callback will update stRemoteDeviceInfo.Index whenever a new client(MAC) is discovered
+                 stRemoteDeviceInfo.Index will be 2 for the first discovered device */
+                *sock_index = remoteDevice->stRemoteDeviceInfo.Index - 2;
                 IdmMgrDml_GetConfigData_release(pidmDmlInfo);
                 return 1;
             }
@@ -157,6 +160,7 @@ void tcp_server_thread(void *arg)
     int addrlen = sizeof(client);
     unsigned int counter = 0;
     int verify_status = 0;
+    unsigned int sock_index = 0;
 
     callback_recv rcv_cb = ta->cb;
     strncpy_s(interface, sizeof(interface), ta->interface, INTF_SIZE);
@@ -246,7 +250,6 @@ void tcp_server_thread(void *arg)
         close(master_sock_fd);
         return;
     }
-
     while(TRUE)
     {
         FD_ZERO(&rset);
@@ -281,7 +284,7 @@ void tcp_server_thread(void *arg)
             counter = 0;
             while(1)
             {
-                verify_status = verify_client(interface, inet_ntoa(client.sin_addr));
+                verify_status = verify_client(interface, inet_ntoa(client.sin_addr), &sock_index);
                 // exit if it returns errors(-1) or if it returns 1(found the client)
                 if(verify_status == 1 || verify_status == -1)
                 {
@@ -305,34 +308,49 @@ void tcp_server_thread(void *arg)
 
             CcspTraceInfo(("%s %d client mac and ip addresses matched sucessfully\n", __FUNCTION__, __LINE__));
             CcspTraceInfo(("New Client Connected Successfully with socket id  = %d\n", c_fd));
-            //Save the new client FD in a vacant slot of client FD array
-            for(i = 0; i< MAX_TCP_CLIENTS; i++)
+            // instead of searching for vacant position, use the array index derived from Index kept in node
+            if(sock_index < MAX_TCP_CLIENTS)
             {
-                if(client_socket[i] == 0)
+                CcspTraceInfo(("%s %d Using sock_index:%d for sock_id:%d\n", __FUNCTION__, __LINE__, sock_index, c_fd));
+                // if previous socket id is there, just close it
+                if(client_socket[sock_index] > 0)
                 {
-                    client_socket[i] = c_fd;
-                    c_fd = 0;
-                    break;
+                    CcspTraceInfo(("%s %d Closing existing socket ID : %d\n", __FUNCTION__, __LINE__, client_socket[sock_index]));
+                    close(client_socket[sock_index]);
                 }
+                client_socket[sock_index] = c_fd;
+                c_fd = 0;
             }
             //No space left to hold the new connection, if you want increase MAX_CLIENTS
-            if(c_fd != 0)
+            else
             {
                 //close(c_fd);
                 CcspTraceInfo(("\nNo space left = %d\n", c_fd));
             }
 #ifndef IDM_DEBUG
-            ssl[i] = SSL_new(ctx);
-            if (ssl[i] != NULL) {
-                SSL_set_fd(ssl[i], client_socket[i]);
-                if (SSL_accept(ssl[i]) <= 0) {
-                    CcspTraceError(("(%s:%d)SSL handshake failed\n", __FUNCTION__, __LINE__));
+            if(sock_index < MAX_TCP_CLIENTS)
+            {
+                // if ssl was allocated previously for the same client, deallocate it
+                if(ssl[sock_index])
+                {
+                    SSL_free(ssl[sock_index]);
                 }
-            } else {
-                CcspTraceError(("(%s:%d) SSL session creation failed for client (%d)\n", __FUNCTION__, __LINE__, c_fd));
+                ssl[sock_index] = SSL_new(ctx);
+                if (ssl[sock_index] != NULL)
+                {
+                    SSL_set_fd(ssl[sock_index], client_socket[sock_index]);
+                    if (SSL_accept(ssl[sock_index]) <= 0)
+                    {
+                        CcspTraceError(("(%s:%d)SSL handshake failed\n", __FUNCTION__, __LINE__));
+                    }
+                }
+                else
+                {
+                    CcspTraceError(("(%s:%d) SSL session creation failed for client (%d)\n", __FUNCTION__, __LINE__, c_fd));
+                }
             }
 #endif
-        }
+        } 
         //else its some IO operation on some other socket
         for (i = 0; i < MAX_TCP_CLIENTS; i++)
         {
