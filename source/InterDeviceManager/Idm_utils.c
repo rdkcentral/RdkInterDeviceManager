@@ -28,6 +28,9 @@
 #include <sysevent/sysevent.h>
 #include <syscfg/syscfg.h>
 #include <net/if_arp.h>
+#ifdef ENABLE_HW_CERT_USAGE
+#include <openssl/pkcs12.h>
+#endif
 int sysevent_fd = -1;
 token_t sysevent_token;
 
@@ -587,3 +590,57 @@ bool checkMacAddr(const char *mac)
             , &bytes[1]
             , &bytes[0]));
 }
+#ifdef ENABLE_HW_CERT_USAGE
+int load_se_cert(char *se_cert , char *pass, EVP_PKEY **pkey, X509 **x509)
+{
+    FILE *fp = NULL;
+    PKCS12 *p12 = NULL;
+
+    if(!se_cert || !pass)
+    {
+        return 0;
+    }
+
+    if(strlen(pass) <= 0)
+    {
+        return 0;
+    }
+
+    if(access(se_cert, F_OK) == -1)
+    {
+        CcspTraceInfo(("%s %d SE certificate does not exist \n", __FUNCTION__, __LINE__));
+        return 0;
+    }
+
+    if ((fp = fopen(se_cert, "rb")) == NULL )
+    {
+        CcspTraceInfo(("%s %d Opening certificate file failed \n", __FUNCTION__, __LINE__));
+        return 0;
+    }
+
+    p12 = d2i_PKCS12_fp(fp, NULL);
+
+    if(p12 == NULL)
+    {
+        CcspTraceInfo(("%s %d Translating certificate file failed \n", __FUNCTION__, __LINE__));
+        fclose(fp);
+        return 0;
+    }
+
+    fclose(fp);
+
+    PKCS12_PBE_add();
+
+    if (!PKCS12_parse(p12, pass, pkey, x509, NULL))
+    {
+        CcspTraceInfo(("%s %d parsing SE certificate file failed \n", __FUNCTION__, __LINE__));
+        return 0;
+    }
+
+    PKCS12_free(p12);
+
+    return 1;
+}
+#endif
+
+

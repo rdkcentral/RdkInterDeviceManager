@@ -21,6 +21,11 @@
 #include "Idm_TCP_apis.h"
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#ifdef ENABLE_HW_CERT_USAGE
+#include "rdkconfig.h"
+#endif
+#include "Idm_data.h"
+#include "secure_wrapper.h"
 #define MAX_TCP_CLIENTS 30
 #define SSL_CERTIFICATE "/tmp/idm_xpki_cert"
 #define SSL_KEY         "/tmp/idm_xpki_key"
@@ -29,7 +34,10 @@ extern char g_sslCert[SSL_FILE_LEN];
 extern char g_sslKey[SSL_FILE_LEN];
 extern char g_sslCA[SSL_FILE_LEN];
 extern char g_sslCaDir[SSL_FILE_LEN];
-
+#ifdef ENABLE_HW_CERT_USAGE
+extern char g_sslSeCert[128];
+extern char g_sslPassCodeFile[128];
+#endif
 bool ssl_lib_init = false;
 bool TCP_server_started = false;
 
@@ -55,13 +63,83 @@ SSL_CTX* init_ctx(void)
 
 int load_certificate(SSL_CTX* ctx)
 {
-    if ( SSL_CTX_use_certificate_file(ctx, g_sslCert, SSL_FILETYPE_PEM) <= 0 )
+#ifdef ENABLE_HW_CERT_USAGE
+    EVP_PKEY *pkey = NULL;
+    X509 *x509 = NULL;
+    uint8_t *pass_phrase = NULL;
+    size_t pass_size;
+    size_t len = 0;
+
+    CcspTraceInfo(("(%s:%d) Getting passcode for file %s\n", __FUNCTION__, __LINE__,g_sslPassCodeFile));
+
+    if(rdkconfig_get(&pass_phrase, &pass_size, g_sslPassCodeFile) == RDKCONFIG_FAIL)
     {
-        CcspTraceError(("(%s:%d) Error in loading certificate\n", __FUNCTION__, __LINE__));
-        return -1;
+        CcspTraceError(("(%s:%d) Error in getting passcode\n", __FUNCTION__, __LINE__));
+    }
+    else
+    {
+        len = strcspn(pass_phrase, "\n");
+        pass_phrase[len] = '\0';
+        CcspTraceInfo(("(%s:%d) Passcode decoded successfully \n", __FUNCTION__, __LINE__));
     }
 
-    CcspTraceInfo(("(%s:%d)SSL Certificate = %s\n", __FUNCTION__, __LINE__,g_sslCert));
+    if(load_se_cert(g_sslSeCert, pass_phrase, &pkey, &x509))
+    {
+        if(pass_phrase != NULL)
+        {
+            CcspTraceInfo(("(%s:%d) Freeing passphrase buffer \n", __FUNCTION__, __LINE__));
+            rdkconfig_free(&pass_phrase, pass_size);
+        }
+
+        CcspTraceInfo(("(%s:%d) Using SE cert \n", __FUNCTION__, __LINE__));
+
+        if(SSL_CTX_use_certificate(ctx,x509) != 1) 
+        {
+            CcspTraceError(("(%s:%d) Error in loading certificate\n", __FUNCTION__, __LINE__));
+            EVP_PKEY_free(pkey);
+            X509_free(x509);
+            return -1;
+        }
+
+        if(SSL_CTX_use_PrivateKey(ctx, pkey) != 1) 
+        {
+            CcspTraceError(("(%s:%d) Error in loading private key\n", __FUNCTION__, __LINE__));
+            EVP_PKEY_free(pkey);
+            X509_free(x509);
+            return -1;
+        }
+    }
+    else
+    {
+        CcspTraceInfo(("(%s:%d)Error in loading SE cert \n", __FUNCTION__, __LINE__));
+
+        if(pass_phrase != NULL)
+        {
+            CcspTraceInfo(("(%s:%d) Freeing passphrase buffer \n", __FUNCTION__, __LINE__));
+            rdkconfig_free(&pass_phrase, pass_size);
+        }
+
+        if ( SSL_CTX_use_certificate_file(ctx, g_sslCert, SSL_FILETYPE_PEM) <= 0 )
+        {
+            CcspTraceError(("(%s:%d) Error in loading certificate\n", __FUNCTION__, __LINE__));
+            return -1;
+        }
+
+        CcspTraceInfo(("(%s:%d) Using generic SSL Certificate \n", __FUNCTION__, __LINE__));
+
+        if ( SSL_CTX_use_PrivateKey_file(ctx, g_sslKey, SSL_FILETYPE_PEM) <= 0 )
+        {
+            CcspTraceError(("(%s:%d) Error in loading private key file\n", __FUNCTION__, __LINE__));
+            return -1;
+        }
+
+    }
+#else
+    if ( SSL_CTX_use_certificate_file(ctx, g_sslCert, SSL_FILETYPE_PEM) <= 0 )
+    {
+        CcspTraceError(("(%s:%d) Error in loading generic certificate\n", __FUNCTION__, __LINE__));
+        return -1;
+    }
 
     if ( SSL_CTX_use_PrivateKey_file(ctx, g_sslKey, SSL_FILETYPE_PEM) <= 0 )
     {
@@ -69,7 +147,7 @@ int load_certificate(SSL_CTX* ctx)
         return -1;
     }
 
-    CcspTraceInfo(("(%s:%d)SSL Key = %s\n", __FUNCTION__, __LINE__,g_sslKey));
+#endif
 
     if ( !SSL_CTX_check_private_key(ctx) )
     {

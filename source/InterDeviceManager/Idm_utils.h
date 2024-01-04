@@ -56,4 +56,7 @@ ANSC_STATUS IDM_SyseventInit();
 void IDM_SyseventClose();
 int IsFileExists(char *file_name);
 bool checkMacAddr(const char *mac);
+#ifdef ENABLE_HW_CERT_USAGE
+int load_se_cert(char *se_cert , char *pass, EVP_PKEY **pkey, X509 **x509);
+#endif
 #endif

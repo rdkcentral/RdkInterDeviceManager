@@ -41,6 +41,10 @@ char g_sslCert[128];
 char g_sslKey[128];
 char g_sslCA[128];
 char g_sslCaDir[128];
+#ifdef ENABLE_HW_CERT_USAGE
+char g_sslSeCert[128];
+char g_sslPassCodeFile[128];
+#endif
 
 extern ANSC_STATUS Idm_Init();
 
@@ -235,6 +239,24 @@ int main(int argc, char* argv[])
                 CcspTraceInfo(("SSL CA dir :%s\n", g_sslCaDir));
             }
         }
+#ifdef ENABLE_HW_CERT_USAGE
+        else if(idx == 5)
+        {
+            if (strlen(argv[idx]) > 0)
+            {
+                strncpy(g_sslSeCert, argv[idx], sizeof(g_sslSeCert) - 1);
+                CcspTraceInfo(("SSL SE cert file copied\n"));
+            }
+        }
+        else if(idx == 6)
+        {
+            if (strlen(argv[idx]) > 0)
+            {
+                strncpy(g_sslPassCodeFile, argv[idx], sizeof(g_sslPassCodeFile) - 1);
+                CcspTraceInfo(("SSL passcode file copied\n"));
+            }
+        }
+#endif
     }
     pComponentName          = RDK_COMPONENT_NAME_INTER_DEVICE_MANAGER;
 
