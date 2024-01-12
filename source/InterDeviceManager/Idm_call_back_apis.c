@@ -30,6 +30,8 @@
 
 #define DM_REMOTE_DEVICE_TABLE "Device.X_RDK_Remote.Device"
 #define DEFAULT_IDM_REQUEST_TIMEOUT 10
+#define MIN_BUFF                      128
+#define MAX_BUFF                      1024
 
 #define SYSEVENT_FIREWALL_RESTART "firewall-restart"
 
@@ -320,6 +322,43 @@ int check_device_status()
     IdmMgrDml_GetConfigData_release(pidmDmlInfo);
     return 0;
 }
+
+bool check_device_reachability (char *ip)
+{
+    char    cmd[MIN_BUFF] = {0},buf[MIN_BUFF] = {0},out[MAX_BUFF] = {0};
+    FILE    *fp = NULL;
+    size_t  total_read = 0;
+
+    if (ip == NULL)
+    {
+        CcspTraceInfo(("Ip address null \n"));
+        return false;
+    }
+    CcspTraceInfo(("check ip reachbility %s \n",ip));
+    snprintf(cmd, sizeof(cmd), "ping -c 1 %s",ip);
+    fp = v_secure_popen("r", cmd);
+    if (!fp) {
+        CcspTraceInfo(("%s - popen failed, errno = %d \n", cmd, errno));
+        return false;
+    }
+    memset(out, 0, MAX_BUFF);
+    while (fgets(buf, MIN_BUFF, fp) != NULL) {
+        size_t len = strlen(buf);
+        if (total_read + len >= MAX_BUFF) {
+            CcspTraceInfo(("Exceeded buffer size, clipping output\n"));
+            break;
+        }
+        strncpy(out + total_read, buf, len);
+        total_read += len;
+    }
+
+    if(v_secure_pclose(fp)) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
 int discovery_cb(device_info_t* Device, uint discovery_status, uint authentication_status )
 {
     CcspTraceInfo(("%s %d -  \n", __FUNCTION__, __LINE__));
@@ -368,18 +407,21 @@ int discovery_cb(device_info_t* Device, uint discovery_status, uint authenticati
         ret = check_device_status();
         if(ret == 1)
         {
-            CcspTraceInfo(("%s %d - Short mesh disconnection. Restart upnp and returning from discovery_cb \n", __FUNCTION__, __LINE__));
-
-            PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
-            if(pidmDmlInfo != NULL)
+            if(check_device_reachability(Device->ipv4_addr))
             {
-                if(pidmDmlInfo->stConnectionInfo.DiscoveryInProgress == TRUE)
+                CcspTraceInfo(("%s %d - Short mesh disconnection. Restart upnp and returning from discovery_cb \n", __FUNCTION__, __LINE__));
+
+                PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
+                if(pidmDmlInfo != NULL)
                 {
-                    IDM_Stop_Device_Discovery();
+                    if(pidmDmlInfo->stConnectionInfo.DiscoveryInProgress == TRUE)
+                    {
+                        IDM_Stop_Device_Discovery();
+                    }
+                    IdmMgrDml_GetConfigData_release(pidmDmlInfo);
                 }
-                IdmMgrDml_GetConfigData_release(pidmDmlInfo);
+                return 0;
             }
-            return 0;
         }
 
         CcspTraceInfo(("%s %d: Device is still not available after 5 secs, proceeding to GFO  \n", __FUNCTION__, __LINE__));

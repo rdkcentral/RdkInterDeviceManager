@@ -28,4 +28,5 @@ int discovery_cb(device_info_t* Device, uint discovery_status, uint authenticati
 int connection_cb(device_info_t* Device, connection_info_t* conn_info, uint encryption_status);
 int rcv_message_cb( connection_info_t* conn_info, void *payload);
 int check_device_status();
+bool check_device_reachability (char *ip);
 #endif
