@@ -497,7 +497,7 @@ int open_remote_connection(connection_config_t* connectionConf, int (*connection
     return 0;
 }
 
-int getFile_to_remote(connection_info_t* conn_info,void *payload)
+char* getFile_to_remote(connection_info_t* conn_info,void *payload)
 {
     CcspTraceDebug(("Inside %s:%d\n",__FUNCTION__,__LINE__));
     FILE* fptr;
@@ -586,7 +586,7 @@ int getFile_to_remote(connection_info_t* conn_info,void *payload)
                     CcspTraceError(("fread failed \n"));
                     free(buffer);
                     fclose(fptr);
-                    return ANSC_STATUS_FAILURE;
+                    return FT_ERROR;
                 }
                 if((bytes = SSL_write(conn_info->enc.ssl, buffer,length)) <= 0)
                 {
@@ -620,7 +620,7 @@ int getFile_to_remote(connection_info_t* conn_info,void *payload)
                  CcspTraceError(("fread failed \n"));
                  free(buffer);
                  fclose(fptr);
-                 return ANSC_STATUS_FAILURE;
+                 return FT_ERROR;
             }
             if((bytes = send(conn_info->conn, buffer,length,0))<=0){
                 CcspTraceError(("file data is not transformed through send\n"));
@@ -649,7 +649,7 @@ int getFile_to_remote(connection_info_t* conn_info,void *payload)
     return FT_SUCCESS;
 }
 
-int sendFile_to_remote(connection_info_t* conn_info,void *payload,char* output_location)
+char* sendFile_to_remote(connection_info_t* conn_info,void *payload,char* output_location)
 {
     CcspTraceDebug(("Inside %s %d\n",__FUNCTION__,__LINE__));
     FILE* fptr;
@@ -698,7 +698,7 @@ int sendFile_to_remote(connection_info_t* conn_info,void *payload,char* output_l
     {
         ERR_CHK(rc);
         fclose(fptr);
-        return ANSC_STATUS_FAILURE;
+        return FT_ERROR;
     }
 
     buffer = (char*)calloc (1, length);
@@ -713,7 +713,7 @@ int sendFile_to_remote(connection_info_t* conn_info,void *payload,char* output_l
         CcspTraceError(("fread failed \n"));
         free(buffer);
         fclose( fptr );
-        return ANSC_STATUS_FAILURE;
+        return FT_ERROR;
     }
     CcspTraceDebug(("%s:%d output file name = %s length=%zu length in Data=%d\n",__FUNCTION__,__LINE__,Data->param_name,length,Data->file_length));
     fclose( fptr );

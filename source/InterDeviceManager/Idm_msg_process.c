@@ -144,6 +144,8 @@ ANSC_STATUS IDM_sendFile_to_Remote_device(char* Mac_dest,char* filename,char* ou
     CcspTraceDebug(("Inside %s:%d\n",__FUNCTION__,__LINE__));
     int match=0,ind=0;
     errno_t rc = -1;
+    char *send_status = NULL;
+
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
     {
@@ -164,11 +166,16 @@ ANSC_STATUS IDM_sendFile_to_Remote_device(char* Mac_dest,char* filename,char* ou
                 strncpy(payload.Mac_source, localDevice->stRemoteDeviceInfo.MAC,MAC_ADDR_SIZE-1);
                 strncpy(payload.param_name,filename,sizeof(payload.param_name)-1);
                 CcspTraceDebug(("Inside %s:%d peer MAC=%s\n",__FUNCTION__,__LINE__,Mac_dest));
-                rc = strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,sendFile_to_remote(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload,output_location));
-                ERR_CHK(rc);
-	        if(rc == EOK)
+                send_status = sendFile_to_remote(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload,output_location);
+                if(send_status)
                 {
-                    Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+                    CcspTraceInfo(("%s:%d send_status %s\n",__FUNCTION__,__LINE__,send_status));
+                    rc = strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status, FT_STATUS_SIZE, send_status);
+                    ERR_CHK(rc);
+	            if(rc == EOK)
+                    {
+                        Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+                    }
                 }
                 rc = strcmp_s(FT_SUCCESS,strlen(FT_SUCCESS),pidmDmlInfo->stRemoteInfo.ft_status,&ind);
                 ERR_CHK(rc);
@@ -879,6 +886,7 @@ void IDM_Incoming_req_handler_thread()
     int n = 0;
     struct timeval tv;
     errno_t ec = -1;
+    char *get_status = NULL;
 
     PIDM_DML_INFO pidmDmlInfo = NULL;
     while(true)
@@ -979,11 +987,15 @@ void IDM_Incoming_req_handler_thread()
                     {
                         if(remoteDevice->stRemoteDeviceInfo.conn_info.conn !=0)
                         {
-                            ec = strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE,getFile_to_remote(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload));
-                            ERR_CHK(ec);
-	                    if(ec == EOK)
+                            get_status = getFile_to_remote(&remoteDevice->stRemoteDeviceInfo.conn_info, &payload);
+                            if(get_status)
                             {
-                                Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+                                ec = strcpy_s(pidmDmlInfo->stRemoteInfo.ft_status,FT_STATUS_SIZE, get_status);
+                                ERR_CHK(ec);
+	                        if(ec == EOK)
+                                {
+                                    Idm_PublishDmEvent("Device.X_RDK_Remote.FileTransferStatus()",pidmDmlInfo->stRemoteInfo.ft_status);
+                                }
                             }
                         }
                         break;
