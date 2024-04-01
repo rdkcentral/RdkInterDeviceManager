@@ -25,7 +25,9 @@
  * Licensed under the Apache License, Version 2.0
  */
 
+#include "Idm_data.h"
 #include "Idm_msg_process.h"
+#include "Idm_TCP_apis.h"
 #define DM_REMOTE_DEVICE_INVOKE "Device.X_RDK_Remote.Invoke()"
 
 sendReqList *headsendReqList =NULL;
@@ -36,7 +38,9 @@ RecvSubscriptionList *headRecvSubscriptionList = NULL;
 
 uint gReqIdCounter = 0;
 extern rbusHandle_t        rbusHandle;
-extern void Capabilities_get_cb(IDM_REMOTE_DEVICE_INFO *device, ANSC_STATUS status ,char *mac);
+extern int Capabilities_get_cb(IDM_REMOTE_DEVICE_INFO *device, ANSC_STATUS status ,char *mac);
+extern char * sendFile_to_remote(connection_info_t* conn_info,void *payload,char * output_location);
+extern char * getFile_to_remote(connection_info_t* conn_info,void *payload);
 
 static rbusValueType_t IDM_rbusValueChange_GetDataType(enum dataType_e dt)
 {
@@ -517,7 +521,10 @@ int IDM_Incoming_Response_handler(payload_t * payload)
     //call the responce callback API
     if(payload->operation == IDM_REQUEST)
     {
-        Capabilities_get_cb((IDM_REMOTE_DEVICE_INFO *)payload->param_value, payload->status,payload->Mac_source);
+        if (Capabilities_get_cb((IDM_REMOTE_DEVICE_INFO *)payload->param_value, payload->status,payload->Mac_source) != 0)
+        {
+            return -1;
+        }
     }else
     {
         rbusObject_t outParams;
@@ -633,7 +640,7 @@ static void IDM_Rbus_subscriptionEventHandler(rbusHandle_t handle, rbusEvent_t c
     PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
     if( pidmDmlInfo == NULL )
     {
-        return  ANSC_STATUS_FAILURE;
+        return;
     }
 
     RecvSubscriptionList *req = headRecvSubscriptionList;
@@ -880,7 +887,7 @@ int IDM_Incoming_Request_handler(payload_t * payload)
     return 0;
 }
 
-void IDM_Incoming_req_handler_thread()
+void *IDM_Incoming_req_handler_thread()
 {
     // event handler
     int n = 0;
@@ -1013,7 +1020,7 @@ void IDM_Incoming_req_handler_thread()
             if( pidmDmlInfo == NULL )
             {
                 free(ReqEntry);
-                return  ANSC_STATUS_FAILURE;
+                return NULL;
             }
             IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
             payload.reqID = ReqEntry->reqId;
@@ -1038,6 +1045,7 @@ void IDM_Incoming_req_handler_thread()
             free(ReqEntry);
         }
     }
+    return NULL;
 }
 
 

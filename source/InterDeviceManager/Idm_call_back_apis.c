@@ -27,6 +27,7 @@
 #include "Idm_TCP_apis.h"
 #include "Idm_msg_process.h"
 #include "Idm_data.h"
+#include "Idm_rbus.h"
 
 #define DM_REMOTE_DEVICE_TABLE "Device.X_RDK_Remote.Device"
 #define DEFAULT_IDM_REQUEST_TIMEOUT 10
@@ -66,8 +67,14 @@ extern int sysevent_fd;
 extern token_t sysevent_token;
 extern IDM_RBUS_SUBS_STATUS sidmRmSubStatus;
 
-void discovery_cb_thread(void *arg);
+void *discovery_cb_thread(void *arg);
 char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t * payload);
+FILE *v_secure_popen(const char *direction, const char *command, ...);
+int v_secure_pclose(FILE *);
+int platform_hal_GetBaseMacAddress(char *);
+void start_discovery(discovery_config_t* dc_obj,int (*func_callback)(device_info_t*,uint,uint));
+int stop_discovery();
+
 int rcv_message_cb( connection_info_t* conn_info, void *payload)
 {
     CcspTraceInfo(("%s %d - \n", __FUNCTION__, __LINE__));
@@ -125,7 +132,7 @@ int rcv_message_cb( connection_info_t* conn_info, void *payload)
     return 0;
 }
 
-void Capabilities_get_cb(IDM_REMOTE_DEVICE_INFO *device, ANSC_STATUS status ,char *mac)
+int Capabilities_get_cb(IDM_REMOTE_DEVICE_INFO *device, ANSC_STATUS status ,char *mac)
 {
 
         if(status == ANSC_STATUS_SUCCESS)
@@ -136,7 +143,7 @@ void Capabilities_get_cb(IDM_REMOTE_DEVICE_INFO *device, ANSC_STATUS status ,cha
 
         //find device entry
         PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
-            if( pidmDmlInfo == NULL )
+        if( pidmDmlInfo == NULL )
         {
             return  -1;
         }
@@ -199,7 +206,7 @@ void Capabilities_get_cb(IDM_REMOTE_DEVICE_INFO *device, ANSC_STATUS status ,cha
             remoteDevice=remoteDevice->next;
         }
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
-
+    return 0;
 }
 
 int connection_cb(device_info_t* Device, connection_info_t* conn_info, uint encryption_status)
@@ -259,7 +266,7 @@ int connection_cb(device_info_t* Device, connection_info_t* conn_info, uint encr
     
 }
 
-void xupnp_rediscover_thread(void *arg)
+void *xupnp_rediscover_thread(void *arg)
 {
     pthread_detach(pthread_self());
 
@@ -306,7 +313,7 @@ void xupnp_rediscover_thread(void *arg)
             break;
         }
     }
-    return;
+    return NULL;
 }
 
 int check_device_status()
@@ -487,7 +494,7 @@ int discovery_cb(device_info_t* Device, uint discovery_status, uint authenticati
     }    
     return 0;
 }
-void discovery_cb_thread(void *arg)
+void *discovery_cb_thread(void *arg)
 {
     Discovery_cb_threadargs *threadArgs = (Discovery_cb_threadargs*) arg;
     errno_t rc = -1;
@@ -505,7 +512,7 @@ void discovery_cb_thread(void *arg)
     if( pidmDmlInfo == NULL )
     {
         free(threadArgs);
-        return  -1;
+        return NULL;
     }
 
     IDM_REMOTE_DEVICE_LINK_INFO *remoteDevice = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
@@ -588,7 +595,7 @@ void discovery_cb_thread(void *arg)
             {
                 CcspTraceError(("%s %d - open_remote_connection failed\n", __FUNCTION__, __LINE__));
                 free(threadArgs);
-                return -1;
+                return NULL;
             }
             system("touch /tmp/idm_established");
             break;
@@ -609,7 +616,7 @@ void discovery_cb_thread(void *arg)
         {
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             free(threadArgs);
-            return  -1;
+            return NULL;
         }
         memset(newNode, 0, sizeof(IDM_REMOTE_DEVICE_LINK_INFO));
         if(authentication_status)
@@ -678,7 +685,7 @@ void discovery_cb_thread(void *arg)
             CcspTraceError(("%s %d - open_remote_connection failed\n", __FUNCTION__, __LINE__));
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
             free(threadArgs);
-            return -1;
+            return NULL;
         }
         system("touch /tmp/idm_established");
     }
@@ -690,11 +697,12 @@ void discovery_cb_thread(void *arg)
     
     free(threadArgs);
     pthread_exit(NULL);
-    return 0;
+    return NULL;
 }
 
-void start_discovery_thread(void)
+void *start_discovery_thread(void *arg)
 {
+    (void)(arg);
     CcspTraceInfo(("%s %d - \n", __FUNCTION__, __LINE__));
 
     pthread_detach(pthread_self());
@@ -777,7 +785,7 @@ void start_discovery_thread(void)
         }
     }
     pthread_exit(NULL);
-    return 0;
+    return NULL;
 }
 ANSC_STATUS IDM_Start_Device_Discovery()
 {

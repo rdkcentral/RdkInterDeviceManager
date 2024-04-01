@@ -117,14 +117,12 @@ RecvReqList* IDM_ReceivedReqList_pop();
 
 int IDM_Incoming_Request_handler(payload_t * payload);
 
-void IDM_Incoming_req_handler_thread();
+void *IDM_Incoming_req_handler_thread();
 void IDM_Broadcast_LocalDeviceInfo();
 
 int Idm_UpdateMeshConnectionValue();
 
+ANSC_STATUS IDM_sendFile_to_Remote_device(char * Mac_dest,char * filename,char * output_location);
+ANSC_STATUS IDM_getFile_from_Remote_device(char * Mac_dest,char * filename,char * output_location);
+ char * IDM_SFT_receive(connection_info_t* conn_info,void * payload);
 #endif
-
-
-
-
-

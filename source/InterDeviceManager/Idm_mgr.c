@@ -21,6 +21,8 @@
 #include "inter_device_manager_global.h"
 #include "Idm_rbus.h"
 #include "Idm_utils.h"
+#include "Idm_data.h"
+#include "Idm_call_back_apis.h"
 /*-------------------declarations--------------------*/
 
 /*-------------------Extern declarations--------------------*/

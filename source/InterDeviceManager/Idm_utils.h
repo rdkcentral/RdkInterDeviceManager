@@ -45,7 +45,7 @@ EVENT_DATA_TYPES getEventType(char *event);
 
 IDM_REMOTE_DEVICE_LINK_INFO* getRmDeviceNode(const PIDM_DML_INFO pidmDmlInfo, uint32_t index);
 
-ANSC_STATUS updteSubscriptionStatus(char *event, IDM_RBUS_SUBS_STATUS *sidmRmSubStatus);
+ANSC_STATUS updteSubscriptionStatus(const char *event, IDM_RBUS_SUBS_STATUS *sidmRmSubStatus);
 
 int IDM_RdkBus_SetParamValuesToDB( char *pParamName, char *pParamVal );
 
@@ -59,4 +59,6 @@ bool checkMacAddr(const char *mac);
 #ifdef ENABLE_HW_CERT_USAGE
 int load_se_cert(char *se_cert , char *pass, EVP_PKEY **pkey, X509 **x509);
 #endif
+int getARPMac(char *interface, char *ip_address, char *mac_address);
+bool checkInterfaceStatus(char *interface_name);
 #endif
