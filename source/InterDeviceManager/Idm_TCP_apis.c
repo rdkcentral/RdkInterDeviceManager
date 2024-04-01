@@ -217,7 +217,7 @@ int verify_client(char *interface, char *ip_address, unsigned int *sock_index)
     return 0;
 }
 
-void tcp_server_thread(void *arg)
+void *tcp_server_thread(void *arg)
 {
     struct sockaddr_in servaddr;
     int master_sock_fd = -1;
@@ -247,7 +247,7 @@ void tcp_server_thread(void *arg)
     if (( fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
     {
         CcspTraceInfo(("%s %d Socket creation failed : %s", __FUNCTION__, __LINE__, strerror(errno)));
-        return;
+        return NULL;
     }
 
     memset(&ifr, 0x00, sizeof(ifr));
@@ -257,7 +257,7 @@ void tcp_server_thread(void *arg)
     {
         CcspTraceInfo(("%s %d Failed to get ip %s \n", __FUNCTION__, __LINE__, strerror(errno)));
         close(fd);
-        return;
+        return NULL;
     }
     close(fd);
 
@@ -275,14 +275,14 @@ void tcp_server_thread(void *arg)
     {
         CcspTraceInfo(("\nIDM Server socket open failed\n"));
         rc = EINVAL;
-        return 0;
+        return NULL;
     }
 
     if( setsockopt(master_sock_fd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval , sizeof(int)) )
     {
         CcspTraceError(("server socket SO_REUSEADDR flag set failed : %s", strerror(errno)));
         close(master_sock_fd);
-        return 0;
+        return NULL;
     }
 
 #ifndef IDM_DEBUG
@@ -292,13 +292,13 @@ void tcp_server_thread(void *arg)
     }
     if ((ctx = init_ctx()) == NULL) {
         CcspTraceError(("(%s:%d) SSL ctx creation failed!!\n", __FUNCTION__, __LINE__));
-        return;
+        return NULL;
     }
     if (load_certificate(ctx) == -1) {
         CcspTraceError(("(%s:%d) Can't use certificate now!!\n", __FUNCTION__, __LINE__));
         SSL_CTX_free(ctx);
         close(master_sock_fd);
-        return;
+        return NULL;
     }
 #endif
     servaddr.sin_family = AF_INET;
@@ -315,7 +315,7 @@ void tcp_server_thread(void *arg)
         SSL_CTX_free(ctx);
 #endif
         close(master_sock_fd);
-        return;
+        return NULL;
     }
 
     rc = listen(master_sock_fd, MAX_TCP_CLIENTS);
@@ -327,7 +327,7 @@ void tcp_server_thread(void *arg)
         SSL_CTX_free(ctx);
 #endif
         close(master_sock_fd);
-        return;
+        return NULL;
     }
     while(TRUE)
     {

@@ -24,6 +24,8 @@
 #include "Idm_rbus.h"
 #include "Idm_msg_process.h"
 #include "Idm_data.h"
+#include "Idm_utils.h"
+#include "Idm_call_back_apis.h"
 
 #define CONN_HC_ELEMENTS   4
 #define CONN_METHOD_ELEMENTS   3
@@ -212,7 +214,7 @@ ANSC_STATUS Idm_Rbus_DM_Init()
 
     if(rc != RBUS_ERROR_SUCCESS)
     {
-        rbus_unregDataElements(rbusHandle, idmRmPublishElements, idmRmPublishElements);
+        rbus_unregDataElements(rbusHandle, ARRAY_SZ(idmRmPublishElements), idmRmPublishElements);
         rbus_close(rbusHandle);
         return ANSC_STATUS_FAILURE;
     }
@@ -223,8 +225,8 @@ ANSC_STATUS Idm_Rbus_DM_Init()
 
     if(rc != RBUS_ERROR_SUCCESS)
     {
-        rbus_unregDataElements(rbusHandle, idmRmPublishElements, idmRmPublishElements);
-        rbus_unregDataElements(rbusHandle, idmConnHcElements, idmConnHcElements);
+        rbus_unregDataElements(rbusHandle, ARRAY_SZ(idmRmPublishElements), idmRmPublishElements);
+        rbus_unregDataElements(rbusHandle, ARRAY_SZ(idmConnHcElements), idmConnHcElements);
         rbus_close(rbusHandle);
         return ANSC_STATUS_FAILURE;
     }
@@ -238,9 +240,9 @@ ANSC_STATUS Idm_Rbus_DM_Init()
 //idm manager can call this during idm graceful exit
 ANSC_STATUS Idm_RbusExit()
 {
-    rbus_unregDataElements(rbusHandle, idmRmPublishElements, idmRmPublishElements);
-    rbus_unregDataElements(rbusHandle, idmConnHcElements, idmConnHcElements);
-    rbus_unregDataElements(rbusHandle, idmRmCapElements, idmRmCapElements);
+    rbus_unregDataElements(rbusHandle, ARRAY_SZ(idmRmPublishElements), idmRmPublishElements);
+    rbus_unregDataElements(rbusHandle, ARRAY_SZ(idmConnHcElements), idmConnHcElements);
+    rbus_unregDataElements(rbusHandle, ARRAY_SZ(idmRmCapElements), idmRmCapElements);
     rbus_close(rbusHandle);
     return ANSC_STATUS_SUCCESS;
 }
@@ -561,7 +563,7 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
 
         rbusValue_t value = rbusObject_GetValue(inParams, NULL );
 
-        str = rbusValue_GetString(value, &len);
+        str = (char *)rbusValue_GetString(value, &len);
 
         indexNode = getRmDeviceNode(pidmDmlInfo, 1);
         
@@ -616,7 +618,7 @@ rbusError_t X_RDK_Remote_MethodHandler(rbusHandle_t handle, char const* methodNa
         }
 
         char * arr = indexNode->stRemoteDeviceInfo.Capabilities;
-        char* token = strtok(out, ",");
+        char* token = strtok((char *)out, ",");
         while (token != NULL) 
         {
             capPos = strstr(arr, token);
@@ -965,7 +967,7 @@ rbusError_t X_RDK_Connection_SetHandler(rbusHandle_t handle, rbusProperty_t prop
     {
         if (value) 
         {
-            char *InterfaceName = rbusValue_GetString(value, NULL);
+            char *InterfaceName = (char *)rbusValue_GetString(value, NULL);
             if((InterfaceName == NULL) || (type != RBUS_STRING))
             {
                 IdmMgrDml_GetConfigData_release(pidmDmlInfo);

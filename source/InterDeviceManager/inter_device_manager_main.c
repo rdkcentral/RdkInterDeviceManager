@@ -30,6 +30,7 @@
 #include "ccsp_trace.h"
 #include "ccsp_dm_api.h"
 #include "cap.h"
+#include <execinfo.h>
 cap_user appcaps;
 
 #define DEBUG_INI_NAME  "/etc/debug.ini"
@@ -48,6 +49,11 @@ char g_sslSeCA[128];
 #endif
 
 extern ANSC_STATUS Idm_Init();
+extern int syscfg_init();
+
+#ifdef INCLUDE_BREAKPAD 
+void breakpad_ExceptionHandler(void);
+#endif
 
 #if defined(_ANSC_LINUX)
 static void daemonize(void)

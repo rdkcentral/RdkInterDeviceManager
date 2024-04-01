@@ -24,6 +24,7 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include "Idm_rbus.h"
+#include "Idm_data.h"
 #include <ifaddrs.h>
 #include <sysevent/sysevent.h>
 #include <syscfg/syscfg.h>
@@ -31,6 +32,8 @@
 #ifdef ENABLE_HW_CERT_USAGE
 #include <openssl/pkcs12.h>
 #endif
+#include <platform_hal.h>
+
 int sysevent_fd = -1;
 token_t sysevent_token;
 
@@ -168,7 +171,7 @@ IDM_REMOTE_DEVICE_LINK_INFO* getRmDeviceNode(PIDM_DML_INFO pidmDmlInfo, uint32_t
 
     if( pidmDmlInfo == NULL )
     {
-        return  ANSC_STATUS_FAILURE;
+        return NULL;
     }
 
     IDM_REMOTE_DEVICE_LINK_INFO *head = pidmDmlInfo->stRemoteInfo.pstDeviceLink;
@@ -185,7 +188,7 @@ IDM_REMOTE_DEVICE_LINK_INFO* getRmDeviceNode(PIDM_DML_INFO pidmDmlInfo, uint32_t
     return NULL;
 }
 
-ANSC_STATUS updteSubscriptionStatus(char *event, IDM_RBUS_SUBS_STATUS *sidmRmSubStatus)
+ANSC_STATUS updteSubscriptionStatus(const char *event, IDM_RBUS_SUBS_STATUS *sidmRmSubStatus)
 {
 
     if(event == NULL || sidmRmSubStatus == NULL)
