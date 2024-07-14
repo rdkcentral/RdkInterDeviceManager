@@ -44,6 +44,7 @@ char g_sslCaDir[128];
 #ifdef ENABLE_HW_CERT_USAGE
 char g_sslSeCert[128];
 char g_sslPassCodeFile[128];
+char g_sslSeCA[128];
 #endif
 
 extern ANSC_STATUS Idm_Init();
@@ -254,6 +255,14 @@ int main(int argc, char* argv[])
             {
                 strncpy(g_sslPassCodeFile, argv[idx], sizeof(g_sslPassCodeFile) - 1);
                 CcspTraceInfo(("SSL passcode file copied\n"));
+            }
+        }
+        else if(idx == 7)
+        {
+            if (strlen(argv[idx]) > 0)
+            {
+                strncpy(g_sslSeCA, argv[idx], sizeof(g_sslSeCA) - 1);
+                CcspTraceInfo(("SSL CA file file copied\n"));
             }
         }
 #endif

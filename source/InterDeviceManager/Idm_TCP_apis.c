@@ -37,6 +37,7 @@ extern char g_sslCaDir[SSL_FILE_LEN];
 #ifdef ENABLE_HW_CERT_USAGE
 extern char g_sslSeCert[128];
 extern char g_sslPassCodeFile[128];
+extern char g_sslSeCA[128];
 #endif
 bool ssl_lib_init = false;
 bool TCP_server_started = false;

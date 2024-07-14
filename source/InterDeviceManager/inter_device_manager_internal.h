@@ -99,6 +99,11 @@ typedef struct {
     char sslCert[SSL_FILE_LEN];
     char sslKey[SSL_FILE_LEN];
     char sslCA[SSL_FILE_LEN];
+#ifdef ENABLE_HW_CERT_USAGE
+    char sslSeCert[SSL_FILE_LEN];
+    char sslPassCodeFile[SSL_FILE_LEN];
+    char sslSeCA[SSL_FILE_LEN];
+#endif
 } discovery_config_t;
 
 typedef struct {

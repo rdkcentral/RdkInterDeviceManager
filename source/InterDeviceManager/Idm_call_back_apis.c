@@ -48,6 +48,11 @@ extern char g_sslCert[SSL_FILE_LEN];
 extern char g_sslKey[SSL_FILE_LEN];
 extern char g_sslCA[SSL_FILE_LEN];
 extern char g_sslCaDir[SSL_FILE_LEN];
+#ifdef ENABLE_HW_CERT_USAGE
+extern char g_sslSeCert[SSL_FILE_LEN];
+extern char g_sslPassCodeFile[SSL_FILE_LEN];
+extern char g_sslSeCA[SSL_FILE_LEN];
+#endif
 
 typedef struct discovery_cb_threadargs
 {
@@ -732,6 +737,12 @@ void start_discovery_thread(void)
         strncpy(discoveryConf.sslCert, g_sslCert, sizeof(discoveryConf.sslCert) - 1 );
         strncpy(discoveryConf.sslKey, g_sslKey, sizeof(discoveryConf.sslKey) - 1 );
         strncpy(discoveryConf.sslCA, g_sslCA, sizeof(discoveryConf.sslCA) - 1 );
+#ifdef ENABLE_HW_CERT_USAGE
+        // pass the configuration to xupnp 
+        strncpy(discoveryConf.sslSeCert, g_sslSeCert, sizeof(discoveryConf.sslSeCert) - 1 );
+        strncpy(discoveryConf.sslPassCodeFile, g_sslPassCodeFile, sizeof(discoveryConf.sslPassCodeFile) - 1 );
+        strncpy(discoveryConf.sslSeCA, g_sslSeCA, sizeof(discoveryConf.sslSeCA) - 1 );
+#endif
 
         /* Update discovery_config deatils */
         PIDM_DML_INFO pidmDmlInfo = IdmMgr_GetConfigData_locked();
