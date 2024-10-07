@@ -174,7 +174,6 @@ int main(int argc, char* argv[])
 #ifdef FEATURE_SUPPORT_RDKLOG
     RDK_LOGGER_INIT();
 #endif
-    syscfg_init();
     bool blocklist_ret = false;
     blocklist_ret = isBlocklisted();
     if(blocklist_ret)
