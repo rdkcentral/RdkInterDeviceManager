@@ -56,21 +56,22 @@
 #define FT_STATUS_SIZE 24
 #define INTF_SIZE 32
 #define SSL_FILE_LEN 128
+
 typedef  struct
 _COMPONENT_COMMON_INTER_DEVICE_MANAGER
 {
     char*                           Name;
-    ULONG                           Version;
+    uint32_t                           Version;
     char*                           Author;
-    ULONG                           Health;
-    ULONG                           State;
+    uint32_t                           Health;
+    uint32_t                           State;
 
     BOOL                            LogEnable;
-    ULONG                           LogLevel;
+    uint32_t                           LogLevel;
 
-    ULONG                           MemMaxUsage;
-    ULONG                           MemMinUsage;
-    ULONG                           MemConsumed;
+    uint32_t                           MemMaxUsage;
+    uint32_t                           MemMinUsage;
+    uint32_t                           MemConsumed;
 
 }
 COMPONENT_COMMON_INTER_DEVICE_MANAGER, *PCOMPONENT_COMMON_INTER_DEVICE_MANAGER;
@@ -81,9 +82,7 @@ typedef enum _IDM_REMOTE_DEVICE_STATUS
    DEVICE_DETECTED,
    DEVICE_AUTHENTICATED,
    DEVICE_CONNECTED
-}
-
-IDM_REMOTE_DEVICE_STATUS;
+}IDM_REMOTE_DEVICE_STATUS;
 
 typedef struct {
     SSL_CTX *ctx;
@@ -121,9 +120,9 @@ typedef struct {
 typedef struct {
     int conn; //descriptor/sock
     ssl_info_t enc; // Encryption info
-} connection_info_t;
+} connection_info_t; 
 
-typedef  struct _IDM_REMOTE_DEVICE_INFO
+typedef struct 
 {
     IDM_REMOTE_DEVICE_STATUS   Status;
     char                       MAC[18];
@@ -135,8 +134,7 @@ typedef  struct _IDM_REMOTE_DEVICE_INFO
     unsigned int               Index;
     connection_info_t          conn_info;
     char                       ARPMac[MAC_ADDR_SIZE];
-}
-IDM_REMOTE_DEVICE_INFO,  *PIDM_REMOTE_DEVICE_INFO;
+} IDM_REMOTE_DEVICE_INFO, *PIDM_REMOTE_DEVICE_INFO;
 
 typedef  struct _IDM_REMOTE_DEVICE_LINK_INFO
 {
@@ -215,5 +213,4 @@ typedef struct _IDM_RBUS_SUBS_STATUS
     bool idmRmDeviceFTStatusSubscribed;
 
 }IDM_RBUS_SUBS_STATUS;
-
 #endif

@@ -332,7 +332,7 @@ bool check_device_reachability (char *ip)
 {
     char    cmd[MIN_BUFF] = {0},buf[MIN_BUFF] = {0},out[MAX_BUFF] = {0};
     FILE    *fp = NULL;
-    size_t  total_read = 0;
+    uint32_t total_read = 0;
 
     if (ip == NULL)
     {
@@ -348,7 +348,7 @@ bool check_device_reachability (char *ip)
     }
     memset(out, 0, MAX_BUFF);
     while (fgets(buf, MIN_BUFF, fp) != NULL) {
-        size_t len = strlen(buf);
+        uint32_t len = strlen(buf);
         if (total_read + len >= MAX_BUFF) {
             CcspTraceInfo(("Exceeded buffer size, clipping output\n"));
             break;
