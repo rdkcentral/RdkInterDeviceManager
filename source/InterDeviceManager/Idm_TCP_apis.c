@@ -68,8 +68,8 @@ int load_certificate(SSL_CTX* ctx)
     EVP_PKEY *pkey = NULL;
     X509 *x509 = NULL;
     uint8_t *pass_phrase = NULL;
-    size_t pass_size;
-    size_t len = 0;
+    uint32_t pass_size;
+    uint32_t len = 0;
 
     CcspTraceInfo(("(%s:%d) Getting passcode for file %s\n", __FUNCTION__, __LINE__,g_sslPassCodeFile));
 
@@ -583,7 +583,7 @@ char* getFile_to_remote(connection_info_t* conn_info,void *payload)
     payload_t *Data;
     char* buffer;
     int bytes = 0;
-    size_t length;
+    uint32_t length;
 
 #ifndef IDM_DEBUG
     if(conn_info->enc.ssl == NULL){
@@ -732,7 +732,7 @@ char* sendFile_to_remote(connection_info_t* conn_info,void *payload,char* output
 {
     CcspTraceDebug(("Inside %s %d\n",__FUNCTION__,__LINE__));
     FILE* fptr;
-    size_t length;
+    uint32_t length;
     payload_t *Data;
     int bytes = 0;
     char* buffer = NULL;

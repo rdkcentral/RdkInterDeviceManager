@@ -23,7 +23,6 @@
 #include "Idm_rbus.h"
 #include "ccsp_base_api.h"
 
-
 typedef  struct _sendReqList
 {
     uint reqId;
@@ -62,19 +61,19 @@ typedef struct _idm_send_msg_Params
     rbusMethodAsyncHandle_t resCb;
 }idm_send_msg_Params_t;
 
-typedef struct _payload
+typedef struct
 {
     IDM_MSG_OPERATION operation;
     IDM_MSG_TYPE msgType;
     char Mac_source[MAC_ADDR_SIZE];
-    uint reqID;
-    uint timeout;
-    ANSC_STATUS status;
+    uint32_t reqID;
+    uint32_t timeout;
+    uint32_t status;
     int file_length;
     char param_name[128];
     enum dataType_e type;
     char param_value[2048];
-}payload_t;
+} payload_t;
 
 typedef  struct _RecvReqList
 {
