@@ -180,20 +180,11 @@ int main(int argc, char* argv[])
 #ifdef FEATURE_SUPPORT_RDKLOG
     RDK_LOGGER_INIT();
 #endif
-    bool blocklist_ret = false;
-    blocklist_ret = isBlocklisted();
-    if(blocklist_ret)
-    {
-        CcspTraceInfo(("NonRoot feature is disabled\n"));
-    }
-    else
-    {
-        CcspTraceInfo(("NonRoot feature is enabled, dropping root privileges for RdkInterDeviceManager Process\n"));
-        init_capability();
-        drop_root_caps(&appcaps);
-        update_process_caps(&appcaps);
-        read_capability(&appcaps);
-    }
+    CcspTraceInfo(("NonRoot feature is enabled, dropping root privileges for RdkInterDeviceManager Process\n"));
+    init_capability();
+    drop_root_caps(&appcaps);
+    update_process_caps(&appcaps);
+    read_capability(&appcaps);
 
     for(idx = 1; idx < argc; idx++)
     {
