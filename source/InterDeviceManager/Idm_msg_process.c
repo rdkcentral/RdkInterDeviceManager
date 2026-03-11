@@ -451,14 +451,14 @@ char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
         if( pidmDmlInfo == NULL )
         {
             CcspTraceError(("%s:%d DmlInfo is NULL\n",__FUNCTION__,__LINE__));
-	    free(req);
+            free(req);
             return  FT_ERROR;
         }
         if(total_bytes > (pidmDmlInfo->stRemoteInfo.max_file_size))
         {
             CcspTraceError(("%s:%d transfer file size exceeded on self device compared to %d configured value\n",__FUNCTION__,__LINE__,(pidmDmlInfo->stRemoteInfo.max_file_size)));
             IdmMgrDml_GetConfigData_release(pidmDmlInfo);
-	    free(req);
+            free(req);
             return FT_INVALID_FILE_SIZE;
         }
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
@@ -473,17 +473,17 @@ char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
             ERR_CHK(rc);
             if((!ind) && (rc == EOK))
             {
-	        free(req);
+                free(req);
                 return FT_INVALID_DST_PATH;
             }
             rc = strcmp_s(FT_TMP,strlen(FT_TMP),tok,&ind);
             ERR_CHK(rc);
             if((!ind) && (rc == EOK))
             {
-	        free(req);
+                free(req);
                 return FT_INVALID_DST_PATH;
             }
-	    free(req);
+            free(req);
             return FT_NOT_WRITABLE_PATH;
         }
         else{
@@ -492,23 +492,23 @@ char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
             {
                 fclose(fptr);
                 CcspTraceError(("malloc failed to allocate memory\n"));
-	        free(req);
+                free(req);
                 return FT_ERROR;
             }
             while(length<total_bytes){
 #ifndef IDM_DEBUG
                 if(conn_info->enc.ssl != NULL){
-                    bytes = SSL_read(conn_info->enc.ssl, buf, total_bytes-bytes);
+                    bytes = SSL_read(conn_info->enc.ssl, buf, total_bytes - length);
                 }
                 else{
                     CcspTraceError(("%s:%d ssl session is null\n",__FUNCTION__,__LINE__));
                     fclose(fptr);
                     free(buf);
-	            free(req);
+                    free(req);
                     return FT_ERROR;
                 }
 #else
-                bytes = read( conn_info->conn , buf, total_bytes-bytes);
+                bytes = read( conn_info->conn , buf, total_bytes - length);
 #endif
                 CcspTraceInfo(("bytes transfered : %d\n",bytes));
                 if(bytes > 0){
@@ -517,6 +517,8 @@ char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
                 }
                 else{
                     CcspTraceError(("(%s:%d) Data encryption failed (Err: %d)\n", __FUNCTION__, __LINE__,bytes));
+                    // Exit from tight loop if read socket is not usable or there is no data to read
+                    break;
                 }
             }
             if(buf){
@@ -525,11 +527,14 @@ char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
         }
         fclose(fptr);
         free(req);
-        return FT_SUCCESS;
     }
     else
     {
         CcspTraceError(("%s:%d payload is null\n",__FUNCTION__, __LINE__));
+    }
+    if(length > 0 )
+    {
+        return FT_SUCCESS;
     }
     return FT_ERROR;
 }
@@ -876,6 +881,8 @@ char* IDM_SFT_receive(connection_info_t* conn_info,void* payload)
                 }
                 else{
                     CcspTraceError(("(%s:%d) Data encryption failed (Err: %d)\n", __FUNCTION__, __LINE__,bytes));
+                    //Exit from tight loop if read socket is not usable or there is no data to read
+                    break;
                 }
             }
             if(buf){
@@ -890,7 +897,12 @@ char* IDM_SFT_receive(connection_info_t* conn_info,void* payload)
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         return FT_ERROR;
     }
-    return FT_SUCCESS;
+    if(length > 0 )
+    {
+        return FT_SUCCESS;
+    }
+    return FT_ERROR;
+    
 }
 
 int IDM_Incoming_Request_handler(payload_t * payload)
