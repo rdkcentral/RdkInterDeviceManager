@@ -531,11 +531,14 @@ char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
     else
     {
         CcspTraceError(("%s:%d payload is null\n",__FUNCTION__, __LINE__));
+        return FT_ERROR;
     }
     if(length == total_bytes )
     {
         return FT_SUCCESS;
     }
+    // delete a truncated file in case there was an error in the middle
+    remove(req->output_location)
     return FT_ERROR;
 }
 
@@ -901,6 +904,7 @@ char* IDM_SFT_receive(connection_info_t* conn_info,void* payload)
     {
         return FT_SUCCESS;
     }
+    remove(Data->param_name);
     return FT_ERROR;
     
 }
