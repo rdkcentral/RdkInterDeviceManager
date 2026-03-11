@@ -532,7 +532,7 @@ char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
     {
         CcspTraceError(("%s:%d payload is null\n",__FUNCTION__, __LINE__));
     }
-    if(length > 0 )
+    if(length == total_bytes )
     {
         return FT_SUCCESS;
     }
@@ -861,7 +861,7 @@ char* IDM_SFT_receive(connection_info_t* conn_info,void* payload)
             while(length<total_bytes){
 #ifndef IDM_DEBUG
                 if(conn_info->enc.ssl != NULL){
-                    bytes = SSL_read(conn_info->enc.ssl, buf, total_bytes-bytes);
+                    bytes = SSL_read(conn_info->enc.ssl, buf, total_bytes - length);
                 }
                 else{
                     CcspTraceError(("%s:%d ssl session is null\n",__FUNCTION__,__LINE__));
@@ -872,7 +872,7 @@ char* IDM_SFT_receive(connection_info_t* conn_info,void* payload)
                     return FT_ERROR;
                 }
 #else
-                bytes = read( conn_info->conn , buf, total_bytes-bytes);
+                bytes = read( conn_info->conn , buf, total_bytes - length);
 #endif
                 CcspTraceInfo(("bytes transfered : %d\n",bytes));
                 if(bytes > 0){
@@ -897,7 +897,7 @@ char* IDM_SFT_receive(connection_info_t* conn_info,void* payload)
         IdmMgrDml_GetConfigData_release(pidmDmlInfo);
         return FT_ERROR;
     }
-    if(length > 0 )
+    if(length == total_bytes )
     {
         return FT_SUCCESS;
     }
