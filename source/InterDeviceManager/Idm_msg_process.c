@@ -526,6 +526,13 @@ char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
             }
         }
         fclose(fptr);
+        if(length < total_bytes)
+        {
+            // remove partially filled file
+            remove(req->output_location)
+            free(req);
+            return FT_ERROR;
+        }
         free(req);
     }
     else
@@ -533,13 +540,7 @@ char* IDM_Incoming_FT_Response(connection_info_t* conn_info,payload_t* payload)
         CcspTraceError(("%s:%d payload is null\n",__FUNCTION__, __LINE__));
         return FT_ERROR;
     }
-    if(length == total_bytes )
-    {
-        return FT_SUCCESS;
-    }
-    // delete a truncated file in case there was an error in the middle
-    remove(req->output_location)
-    return FT_ERROR;
+    return FT_SUCCESS;
 }
 
 int IDM_Incoming_Response_handler(payload_t * payload)
